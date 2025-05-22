@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Stretch Break
+Exec=stretch-break
+Terminal=false
+Type=Application
+Comment=Helps you take regular breaks from using your computer
+Categories=GNOME;GTK;
+Keywords=Gnome;GTK;
+Icon=io.github.pieterdd.StretchBreak

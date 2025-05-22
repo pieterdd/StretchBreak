@@ -1,0 +1,8 @@
+{
+  "name": "Stretch Break Companion",
+  "description": "GNOME integration for Stretch Break.",
+  "uuid": "stretch-break-companion@pieterdd.github.io",
+  "shell-version": [
+    "48"
+  ]
+}
