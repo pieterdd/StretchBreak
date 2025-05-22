@@ -1,0 +1,31 @@
+name: Generate release artifacts
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build
+      run: docker build -t tmp .
+    - name: Run tests
+      run: docker run --rm tmp cargo test
+    - name: Extract artifacts
+      run: |
+        docker run --name tmp tmp true
+        docker cp tmp:/build/target/release/stretch-break stretch-break.x86_64
+        docker cp tmp:/build/stretch-break.rpm stretch-break.x86_64.rpm
+    - name: Upload binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: stretch-break.x86_64
+        path: stretch-break.x86_64
+        if-no-files-found: error
+    - name: Upload RPM
+      uses: actions/upload-artifact@v4
+      with:
+        name: stretch-break.x86_64.rpm
+        path: stretch-break.x86_64.rpm
+        if-no-files-found: error
