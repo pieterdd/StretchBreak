@@ -1,0 +1,19 @@
+name: Generate vendor artifacts
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - run: rustup update stable && rustup default stable
+    - name: Get vendor files
+      run: cargo vendor
+    - name: Upload vendor files
+      uses: actions/upload-artifact@v4
+      with:
+        name: vendor
+        path: vendor
+        if-no-files-found: error

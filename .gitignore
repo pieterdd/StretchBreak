@@ -36,3 +36,4 @@ dist-ssr
 # Added by cargo
 
 /target
+/vendor
