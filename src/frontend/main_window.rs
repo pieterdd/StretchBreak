@@ -43,6 +43,7 @@ pub struct MainWindow {
     last_idle_info: Receiver<IdleInfo>,
     break_window: Option<Controller<BreakWindow>>,
     show_main_window: Receiver<bool>,
+    open_prebreak_notification_id: Option<String>,
 }
 
 #[relm4::component(pub)]
@@ -179,6 +180,7 @@ impl Component for MainWindow {
             last_idle_info: init.last_idle_info,
             break_window: None,
             show_main_window: init.show_main_window,
+            open_prebreak_notification_id: None,
         };
         let widgets = view_output!();
 
@@ -205,23 +207,45 @@ impl Component for MainWindow {
                         ModeState::PreBreak { .. } => {}
                         _ => {
                             // Try to warn about prebreak if notify-send is installed
-                            Command::new("notify-send")
+                            match Command::new("notify-send")
                                 .args([
                                     "-t",
                                     "5000",
                                     "-e",
                                     "-a",
                                     "Stretch Break",
+                                    "-u",
+                                    "critical",
+                                    "-p",
                                     "Time to stretch",
                                     "Break will start when mouse and keyboard are released.",
                                 ])
                                 .output()
-                                .ok();
+                            {
+                                Ok(out) => {
+                                    self.open_prebreak_notification_id =
+                                        Some(String::from_utf8(out.stdout).unwrap());
+                                }
+                                Err(_) => {}
+                            }
                         }
                     },
                     ModeState::Break { .. } => match self.previous_mode_state {
                         ModeState::Break { .. } => {}
                         _ => {
+                            if let Some(notification_id) = &self.open_prebreak_notification_id {
+                                Command::new("dbus-send")
+                                    .args([
+                                        "--print-reply",
+                                        "--dest=org.freedesktop.Notifications",
+                                        "/org/freedesktop/Notifications",
+                                        "org.freedesktop.Notifications.CloseNotification",
+                                        &format!("uint32:{}", notification_id),
+                                    ])
+                                    .output()
+                                    .ok();
+                                self.open_prebreak_notification_id = None;
+                            }
                             let break_window_init = BreakWindowInit {
                                 idle_monitor_arc: self.idle_monitor_arc.clone(),
                                 last_idle_info: self.last_idle_info.clone(),
