@@ -2158,7 +2158,7 @@ dependencies = [
  "single-instance",
  "tokio",
  "tracing",
- "user-idle",
+ "user-idle2",
  "zbus",
 ]
 
@@ -2420,9 +2420,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a5f39404a5da50712a4c1eecf25e90dd62b613502b7e925fd4e4d19b5c96512"
 
 [[package]]
-name = "user-idle"
-version = "0.6.0"
-source = "git+https://github.com/pieterdd/user-idle-rs.git?branch=add-wayland#3dae21a9b0b8a0efee1322b35d61787443363ab3"
+name = "user-idle2"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "000f0aa2384a4a96453d75ac5b48232d48fd91bc1f5b11bc1243f3253ec28050"
 dependencies = [
  "CoreFoundation-sys",
  "IOKit-sys",

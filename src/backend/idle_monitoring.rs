@@ -1,7 +1,7 @@
 use chrono::{DateTime, Duration, Utc};
 use core::fmt;
 use serde::{Deserialize, Serialize};
-use user_idle::UserIdle;
+use user_idle2::UserIdle;
 
 #[cfg(test)]
 use mockall::automock;
