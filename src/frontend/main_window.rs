@@ -10,7 +10,7 @@ use crate::backend::idle_monitoring::{
 use crate::frontend::formatting::format_timer_timecode;
 use adw::prelude::{ActionRowExt, PreferencesRowExt};
 use chrono::{Local, TimeDelta, Utc};
-use gtk::prelude::{BoxExt, ButtonExt, GtkWindowExt, OrientableExt, WidgetExt};
+use gtk::prelude::{BoxExt, ButtonExt, GtkWindowExt, OrientableExt, ToggleButtonExt, WidgetExt};
 use relm4::RelmWidgetExt;
 use relm4::prelude::ComponentParts;
 use relm4::{Component, ComponentController, ComponentSender, Controller};
@@ -30,6 +30,7 @@ pub enum MainWindowMsg {
     ForceBreak,
     Mute { minutes: i64 },
     Unmute,
+    ToggleReadingMode,
 }
 
 #[derive(Debug)]
@@ -111,6 +112,15 @@ impl Component for MainWindow {
                                                     sender.input(MainWindowMsg::Mute { minutes: 30 });
                                                 },
                                             }
+                                        },
+
+                                        gtk::ToggleButton {
+                                            set_icon_name: "x-office-document-symbolic",
+                                            set_valign: gtk::Align::Center,
+                                            #[watch]
+                                            set_active: model.last_idle_info.borrow().reading_mode,
+                                            set_tooltip: "Reading mode",
+                                            connect_clicked => MainWindowMsg::ToggleReadingMode,
                                         }
                                     }
                                 },
@@ -272,6 +282,10 @@ impl Component for MainWindow {
             }
             MainWindowMsg::Unmute => {
                 self._unwrapped_idle_monitor().unmute();
+            }
+            MainWindowMsg::ToggleReadingMode => {
+                self._unwrapped_idle_monitor()
+                    .set_reading_mode(!self.last_idle_info.borrow().reading_mode);
             }
         }
     }

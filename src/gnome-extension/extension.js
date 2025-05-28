@@ -38,6 +38,9 @@ const DBUS_IFACE = `
             <arg type="x" direction="in" />
         </method>
         <method name="Unmute"></method>
+        <method name="SetReadingMode">
+            <arg type="b" direction="in" />
+        </method>
     </interface>
 </node>`;
 const Proxy = Gio.DBusProxy.makeProxyWrapper(DBUS_IFACE);
@@ -110,6 +113,10 @@ class DBusClient {
         this._proxy.MuteForMinutesSync(numMinutes);
     }
 
+    setReadingMode(value) {
+        this._proxy.SetReadingModeSync(value);
+    }
+
     unwatch() {
         if (this._watchId !== undefined) {
             debugLog('Unwatching DBus');
@@ -154,6 +161,11 @@ const Indicator = GObject.registerClass(
 
             this.menu.addMenuItem(itemToggle);
 
+            this._readingModeSwitch = new PopupMenu.PopupSwitchMenuItem("Reading mode");
+            this._readingModeSwitch.connect('toggled', (_, value) => {
+                dbusClient.setReadingMode(value);
+            });
+            this.menu.addMenuItem(this._readingModeSwitch);
             this._modeSeparator = new PopupMenu.PopupSeparatorMenuItem("");
             this.menu.addMenuItem(this._modeSeparator);
             this._unmuteMenuItem = new PopupMenu.PopupMenuItem("Unmute");
@@ -181,12 +193,16 @@ const Indicator = GObject.registerClass(
         updateMuteStatus(mutedUntilTime) {
             if (mutedUntilTime) {
                 this._normalLabel.style_class = 'muted';
-                this._modeSeparator.label.text = `Modes (unmutes at ${mutedUntilTime})`;
+                this._modeSeparator.label.text = `Muted until ${mutedUntilTime})`;
             } else {
                 this._normalLabel.style_class = '';
-                this._modeSeparator.label.text = 'Modes (active)';
+                this._modeSeparator.label.text = '';
             }
             this._unmuteMenuItem.sensitive = !!mutedUntilTime;
+        }
+
+        updateReadingModeStatus(value) {
+            this._readingModeSwitch.setToggleState(value);
         }
     });
 
@@ -205,6 +221,7 @@ export default class IndicatorExampleExtension extends Extension {
             this._indicator.updateNormalLabel(widgetInfo.normal_timer_value);
             this._indicator.updatePrebreakLabel(widgetInfo.prebreak_timer_value);
             this._indicator.updateMuteStatus(widgetInfo.muted_until_time);
+            this._indicator.updateReadingModeStatus(widgetInfo.reading_mode);
         }
     }
 

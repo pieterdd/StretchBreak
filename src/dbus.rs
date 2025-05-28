@@ -21,6 +21,7 @@ struct WidgetInfo {
     normal_timer_value: String,
     prebreak_timer_value: String,
     muted_until_time: Option<String>,
+    reading_mode: bool,
 }
 
 fn get_widget_info(idle_info: &IdleInfo) -> WidgetInfo {
@@ -49,6 +50,7 @@ fn get_widget_info(idle_info: &IdleInfo) -> WidgetInfo {
             ModeState::Break { .. } => None,
             ModeState::PreBreak { .. } => None,
         },
+        reading_mode: idle_info.reading_mode,
     }
 }
 
@@ -128,6 +130,11 @@ impl DBusServer {
         let mut monitor = self._unlock_monitor();
         monitor.unmute();
     }
+
+    fn set_reading_mode(&self, value: bool) {
+        let mut monitor = self._unlock_monitor();
+        monitor.set_reading_mode(value);
+    }
 }
 
 #[cfg(test)]
@@ -153,6 +160,7 @@ mod tests {
                     active_since: now.checked_sub_signed(TimeDelta::seconds(20)).unwrap(),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(
             get_widget_info(&info),
@@ -160,6 +168,7 @@ mod tests {
                 normal_timer_value: String::from("19:29"),
                 prebreak_timer_value: String::from(""),
                 muted_until_time: None,
+                reading_mode: false,
             }
         )
     }
@@ -178,6 +187,7 @@ mod tests {
                     active_since: now.checked_sub_signed(TimeDelta::seconds(20)).unwrap(),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(
             get_widget_info(&info),
@@ -185,6 +195,7 @@ mod tests {
                 normal_timer_value: String::from("19:29"),
                 prebreak_timer_value: String::from(""),
                 muted_until_time: Some(String::from("13:34")),
+                reading_mode: false,
             }
         )
     }

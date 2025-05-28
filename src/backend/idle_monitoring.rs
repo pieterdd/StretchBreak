@@ -106,6 +106,7 @@ pub struct IdleInfo {
     pub idle_since_seconds: u64,
     pub last_checked: DateTime<Utc>,
     pub last_mode_state: ModeState,
+    pub reading_mode: bool,
 }
 
 impl IdleInfo {
@@ -138,6 +139,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                     progress_towards_break: Duration::seconds(0),
                     progress_towards_reset: Duration::seconds(0),
                 },
+                reading_mode: false,
             },
         }
     }
@@ -162,9 +164,12 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
             }
             DebouncedIdleState::Active { active_since } => match idle_since_seconds {
                 0 => DebouncedIdleState::Active { active_since },
-                _ => DebouncedIdleState::ActiveGoingToIdle {
-                    active_since,
-                    transitioning_since: check_time,
+                _ => match self.last_idle_info.reading_mode {
+                    true => DebouncedIdleState::Active { active_since },
+                    false => DebouncedIdleState::ActiveGoingToIdle {
+                        active_since,
+                        transitioning_since: check_time,
+                    },
                 },
             },
             DebouncedIdleState::ActiveGoingToIdle {
@@ -219,6 +224,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
         check_time: DateTime<Utc>,
         new_idle_state: DebouncedIdleState,
         time_since_last_check: Duration,
+        reading_mode: bool,
     ) -> IdleInfo {
         IdleInfo {
             idle_since_seconds,
@@ -271,6 +277,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                         .min(progress_towards_reset + time_since_last_check),
                 },
             },
+            reading_mode,
         }
     }
 
@@ -279,6 +286,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
         idle_since_seconds: u64,
         last_checked: DateTime<Utc>,
         waiting_since: DateTime<Utc>,
+        reading_mode: bool,
     ) -> IdleInfo {
         IdleInfo {
             idle_since_seconds,
@@ -286,6 +294,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
             last_mode_state: ModeState::PreBreak {
                 started_at: waiting_since,
             },
+            reading_mode,
         }
     }
 
@@ -296,6 +305,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
         new_idle_state: DebouncedIdleState,
         progress_towards_finish: Duration,
         time_since_last_check: Duration,
+        reading_mode: bool,
     ) -> IdleInfo {
         IdleInfo {
             idle_since_seconds,
@@ -312,6 +322,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                 },
                 idle_state: new_idle_state,
             },
+            reading_mode,
         }
     }
 
@@ -363,6 +374,10 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
         self.last_idle_info.clone()
     }
 
+    pub fn set_reading_mode(&mut self, reading_mode: bool) {
+        self.last_idle_info.reading_mode = reading_mode;
+    }
+
     pub fn refresh_idle_info(&mut self) -> IdleInfo {
         let idle_since_seconds = self.idle_checker.get_idle_time_in_seconds();
         let check_time = self.clock.get_time();
@@ -387,6 +402,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                     idle_since_seconds,
                     check_time,
                     self.clock.get_time(),
+                    self.last_idle_info.reading_mode,
                 )
             }
             ModeState::Normal {
@@ -413,6 +429,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                     start_of_transition_period,
                 ),
                 time_since_last_check,
+                self.last_idle_info.reading_mode,
             ),
             ModeState::PreBreak { .. }
                 if idle_since_seconds >= REQUIRED_PREBREAK_IDLE_STREAK_SECONDS =>
@@ -429,6 +446,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                                 ),
                         },
                     },
+                    reading_mode: self.last_idle_info.reading_mode,
                 }
             }
             ModeState::PreBreak {
@@ -437,6 +455,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                 idle_since_seconds,
                 check_time,
                 waiting_since,
+                self.last_idle_info.reading_mode,
             ),
             ModeState::Break {
                 progress_towards_finish,
@@ -459,6 +478,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                             start_of_transition_period,
                         ),
                     },
+                    reading_mode: self.last_idle_info.reading_mode,
                 }
             }
             ModeState::Break {
@@ -476,6 +496,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                 ),
                 progress_towards_finish,
                 time_since_last_check,
+                self.last_idle_info.reading_mode,
             ),
         };
 
@@ -501,6 +522,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                         idle_since: check_time,
                     },
                 },
+                reading_mode: self.last_idle_info.reading_mode,
             },
             _ => self.last_idle_info,
         };
@@ -525,6 +547,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                     progress_towards_reset: Duration::seconds(0),
                     idle_state,
                 },
+                reading_mode: self.last_idle_info.reading_mode,
             },
             _ => self.last_idle_info,
         };
@@ -550,6 +573,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                     progress_towards_reset: Duration::seconds(0),
                     idle_state,
                 },
+                reading_mode: self.last_idle_info.reading_mode,
             },
             _ => self.last_idle_info,
         };
@@ -595,6 +619,7 @@ mod tests {
                     active_since: current_time,
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -619,6 +644,7 @@ mod tests {
                         active_since: current_time - Duration::milliseconds(10000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -632,6 +658,7 @@ mod tests {
                     active_since: current_time - Duration::milliseconds(10000),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -656,6 +683,7 @@ mod tests {
                         active_since: current_time - Duration::milliseconds(10_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -669,6 +697,7 @@ mod tests {
                     idle_since: current_time,
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -694,6 +723,7 @@ mod tests {
                         active_since: current_time - Duration::seconds(15),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -707,6 +737,7 @@ mod tests {
                     idle_since: current_time,
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -731,6 +762,7 @@ mod tests {
                         idle_since: current_time - Duration::milliseconds(5000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -744,6 +776,7 @@ mod tests {
                     idle_since: current_time - Duration::milliseconds(5000),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -768,6 +801,7 @@ mod tests {
                         idle_since: current_time - Duration::milliseconds(5_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -782,6 +816,7 @@ mod tests {
                     transitioning_since: current_time,
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -807,6 +842,7 @@ mod tests {
                         transitioning_since: current_time - Duration::milliseconds(1_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -821,6 +857,7 @@ mod tests {
                     transitioning_since: current_time - Duration::milliseconds(1_000),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -846,6 +883,7 @@ mod tests {
                         transitioning_since: current_time - Duration::milliseconds(3_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -859,6 +897,7 @@ mod tests {
                     idle_since: current_time - Duration::milliseconds(8_000),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -884,6 +923,7 @@ mod tests {
                         transitioning_since: current_time - Duration::milliseconds(3_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -897,6 +937,7 @@ mod tests {
                     active_since: current_time,
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -921,6 +962,7 @@ mod tests {
                         active_since: current_time - Duration::milliseconds(1_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -935,6 +977,46 @@ mod tests {
                     transitioning_since: current_time,
                 },
             },
+            reading_mode: false,
+        };
+        assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
+    }
+
+    #[test]
+    fn test_active_dont_start_transition_to_idle_in_reading_mode() {
+        let current_time = Utc::now();
+        let idle_checker = make_idle_checker(1);
+        let clock = make_clock(&current_time);
+
+        let mut idle_monitor = IdleMonitor {
+            idle_checker,
+            clock,
+            last_idle_info: IdleInfo {
+                idle_since_seconds: 0,
+                last_checked: current_time - Duration::milliseconds(1_000),
+                last_mode_state: ModeState::Normal {
+                    muted_until: None,
+                    progress_towards_break: Duration::milliseconds(8_000),
+                    progress_towards_reset: Duration::seconds(0),
+                    idle_state: DebouncedIdleState::Active {
+                        active_since: current_time - Duration::milliseconds(1_000),
+                    },
+                },
+                reading_mode: true,
+            },
+        };
+        let expected_idle_info = IdleInfo {
+            idle_since_seconds: 1,
+            last_checked: current_time,
+            last_mode_state: ModeState::Normal {
+                muted_until: None,
+                progress_towards_break: Duration::milliseconds(9_000),
+                progress_towards_reset: Duration::seconds(0),
+                idle_state: DebouncedIdleState::Active {
+                    active_since: current_time - Duration::milliseconds(1_000),
+                },
+            },
+            reading_mode: true,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -960,6 +1042,7 @@ mod tests {
                         transitioning_since: current_time - Duration::milliseconds(1_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -974,6 +1057,7 @@ mod tests {
                     transitioning_since: current_time - Duration::milliseconds(1_000),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -999,6 +1083,7 @@ mod tests {
                         transitioning_since: current_time - Duration::milliseconds(2_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1012,6 +1097,7 @@ mod tests {
                     active_since: current_time - Duration::milliseconds(9_000),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1037,6 +1123,7 @@ mod tests {
                         transitioning_since: current_time - Duration::milliseconds(2_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1050,6 +1137,7 @@ mod tests {
                     idle_since: current_time,
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1076,6 +1164,7 @@ mod tests {
                         idle_since: current_time - Duration::milliseconds(5_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1089,6 +1178,7 @@ mod tests {
                     idle_since: current_time - Duration::milliseconds(5_000),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1113,6 +1203,7 @@ mod tests {
                         idle_since: current_time - Duration::milliseconds(5_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let resume_at_stamp = current_time + Duration::seconds(5 * 60);
@@ -1127,6 +1218,7 @@ mod tests {
                     idle_since: current_time - Duration::milliseconds(5_000),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.mute_until(resume_at_stamp), expected_idle_info);
     }
@@ -1151,6 +1243,7 @@ mod tests {
                         idle_since: current_time - Duration::milliseconds(5_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1164,6 +1257,7 @@ mod tests {
                     idle_since: current_time - Duration::milliseconds(5_000),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1188,6 +1282,7 @@ mod tests {
                         idle_since: current_time - Duration::milliseconds(5_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1201,6 +1296,7 @@ mod tests {
                     idle_since: current_time - Duration::milliseconds(5_000),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.unmute(), expected_idle_info);
     }
@@ -1225,6 +1321,7 @@ mod tests {
                         idle_since: current_time - Duration::milliseconds(5_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1238,6 +1335,7 @@ mod tests {
                     idle_since: current_time - Duration::milliseconds(5_000),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.unmute(), expected_idle_info);
     }
@@ -1262,6 +1360,7 @@ mod tests {
                         idle_since: current_time - Duration::milliseconds(5_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1275,6 +1374,7 @@ mod tests {
                     idle_since: current_time - Duration::milliseconds(5_000),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1301,6 +1401,7 @@ mod tests {
                         active_since: current_time - Duration::milliseconds(10_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1309,6 +1410,7 @@ mod tests {
             last_mode_state: ModeState::PreBreak {
                 started_at: current_time,
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1335,6 +1437,7 @@ mod tests {
                         active_since: current_time - Duration::milliseconds(10_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1348,6 +1451,7 @@ mod tests {
                     active_since: current_time - Duration::milliseconds(10_000),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1367,6 +1471,7 @@ mod tests {
                 last_mode_state: ModeState::PreBreak {
                     started_at: current_time - Duration::seconds(5),
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1375,6 +1480,7 @@ mod tests {
             last_mode_state: ModeState::PreBreak {
                 started_at: current_time - Duration::seconds(5),
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1394,6 +1500,7 @@ mod tests {
                 last_mode_state: ModeState::PreBreak {
                     started_at: current_time - Duration::seconds(5),
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1402,6 +1509,7 @@ mod tests {
             last_mode_state: ModeState::PreBreak {
                 started_at: current_time - Duration::seconds(5),
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1421,6 +1529,7 @@ mod tests {
                 last_mode_state: ModeState::PreBreak {
                     started_at: current_time - Duration::seconds(5),
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1432,6 +1541,7 @@ mod tests {
                     idle_since: current_time - Duration::milliseconds(5_000),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1454,6 +1564,7 @@ mod tests {
                         idle_since: current_time - Duration::milliseconds(2_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1465,6 +1576,7 @@ mod tests {
                     idle_since: current_time - Duration::milliseconds(2_000),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1489,6 +1601,7 @@ mod tests {
                         idle_since: current_time - Duration::milliseconds(28_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1502,6 +1615,7 @@ mod tests {
                     idle_since: current_time - Duration::milliseconds(28_000),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1526,6 +1640,7 @@ mod tests {
                         active_since: current_time - Duration::milliseconds(1_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1538,6 +1653,7 @@ mod tests {
                     idle_since: current_time,
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.force_break(), expected_idle_info);
     }
@@ -1560,6 +1676,7 @@ mod tests {
                         idle_since: current_time - Duration::milliseconds(2_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let resume_at_stamp = current_time + Duration::seconds(5 * 60);
@@ -1574,6 +1691,7 @@ mod tests {
                     idle_since: current_time,
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.mute_until(resume_at_stamp), expected_idle_info);
     }
@@ -1596,6 +1714,7 @@ mod tests {
                         active_since: current_time - Duration::milliseconds(2_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1609,6 +1728,7 @@ mod tests {
                     active_since: current_time - Duration::milliseconds(2_000),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(idle_monitor.skip_break(), expected_idle_info);
     }
@@ -1631,6 +1751,7 @@ mod tests {
                         active_since: current_time - Duration::milliseconds(2_000),
                     },
                 },
+                reading_mode: false,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1644,6 +1765,7 @@ mod tests {
                     active_since: current_time - Duration::milliseconds(2_000),
                 },
             },
+            reading_mode: false,
         };
         assert_eq!(
             idle_monitor.postpone_break(Duration::seconds(3 * 60)),
