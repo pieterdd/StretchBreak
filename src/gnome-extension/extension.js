@@ -193,7 +193,7 @@ const Indicator = GObject.registerClass(
         updateMuteStatus(mutedUntilTime) {
             if (mutedUntilTime) {
                 this._normalLabel.style_class = 'muted';
-                this._modeSeparator.label.text = `Muted until ${mutedUntilTime})`;
+                this._modeSeparator.label.text = `Muted until ${mutedUntilTime}`;
             } else {
                 this._normalLabel.style_class = '';
                 this._modeSeparator.label.text = '';
