@@ -184,7 +184,7 @@ mod tests {
             WidgetInfo {
                 normal_timer_value: String::from("19:29"),
                 prebreak_timer_value: String::from(""),
-                muted_until_time: Some(String::from("12:34")),
+                muted_until_time: Some(String::from("13:34")),
             }
         )
     }
