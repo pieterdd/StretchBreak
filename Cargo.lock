@@ -2421,9 +2421,9 @@ checksum = "5a5f39404a5da50712a4c1eecf25e90dd62b613502b7e925fd4e4d19b5c96512"
 
 [[package]]
 name = "user-idle2"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "000f0aa2384a4a96453d75ac5b48232d48fd91bc1f5b11bc1243f3253ec28050"
+checksum = "a5bca33e3c575387dbc8bc8984bb9e86276a20f6a6516b85a0efc41ef39cd255"
 dependencies = [
  "CoreFoundation-sys",
  "IOKit-sys",
