@@ -41,7 +41,8 @@ pub enum MainWindowCmd {
 pub struct MainWindow {
     idle_monitor_arc: Arc<Mutex<IdleMonitor<IdleChecker, Clock>>>,
     previous_mode_state: ModeState,
-    last_idle_info: Receiver<IdleInfo>,
+    last_idle_info_recv: Receiver<IdleInfo>,
+    last_idle_info: IdleInfo,
     break_window: Option<Controller<BreakWindow>>,
     show_main_window: Receiver<bool>,
     open_prebreak_notification_id: Option<String>,
@@ -74,11 +75,11 @@ impl Component for MainWindow {
                         adw::ActionRow {
                             set_title: &format!("Last activity"),
                             #[watch]
-                            set_subtitle: &format!("{} seconds ago", model.last_idle_info.borrow().idle_since_seconds),
+                            set_subtitle: &format!("{} seconds ago", model.last_idle_info.idle_since_seconds),
                         },
                     },
 
-                    match model.last_idle_info.borrow().last_mode_state {
+                    match model.last_idle_info.last_mode_state {
                         ModeState::Normal { progress_towards_reset, progress_towards_break, idle_state, .. } => {
                             adw::PreferencesGroup {
                                 adw::ActionRow {
@@ -94,7 +95,7 @@ impl Component for MainWindow {
                                             set_tooltip: "Break now",
                                             connect_clicked => MainWindowMsg::ForceBreak,
                                         },
-                                        if model.last_idle_info.borrow().is_muted() {
+                                        if model.last_idle_info.is_muted() {
                                             gtk::Button {
                                                 set_icon_name: "audio-speakers-symbolic",
                                                 set_valign: gtk::Align::Center,
@@ -118,7 +119,7 @@ impl Component for MainWindow {
                                             set_icon_name: "x-office-document-symbolic",
                                             set_valign: gtk::Align::Center,
                                             #[watch]
-                                            set_active: model.last_idle_info.borrow().reading_mode,
+                                            set_active: model.last_idle_info.reading_mode,
                                             set_tooltip: "Reading mode",
                                             connect_clicked => MainWindowMsg::ToggleReadingMode,
                                         }
@@ -168,7 +169,7 @@ impl Component for MainWindow {
                                 adw::ActionRow {
                                     set_title: &format!("Prebreak"),
                                     #[watch]
-                                    set_subtitle: &format!("{} seconds to break", REQUIRED_PREBREAK_IDLE_STREAK_SECONDS - model.last_idle_info.borrow().idle_since_seconds),
+                                    set_subtitle: &format!("{} seconds to break", REQUIRED_PREBREAK_IDLE_STREAK_SECONDS - model.last_idle_info.idle_since_seconds),
                                 },
                             }
                         }
@@ -187,7 +188,8 @@ impl Component for MainWindow {
         let model = MainWindow {
             idle_monitor_arc: init.idle_monitor_arc,
             previous_mode_state: previous_last_idle_info.last_mode_state,
-            last_idle_info: init.last_idle_info,
+            last_idle_info_recv: init.last_idle_info,
+            last_idle_info: previous_last_idle_info,
             break_window: None,
             show_main_window: init.show_main_window,
             open_prebreak_notification_id: None,
@@ -210,8 +212,7 @@ impl Component for MainWindow {
                     sleep(Duration::from_millis(100));
                     MainWindowCmd::TriggerUpdate
                 });
-                let idle_info = self.last_idle_info.borrow();
-                match idle_info.last_mode_state {
+                match self.last_idle_info.last_mode_state {
                     ModeState::Normal { .. } => {}
                     ModeState::PreBreak { .. } => match self.previous_mode_state {
                         ModeState::PreBreak { .. } => {}
@@ -258,7 +259,7 @@ impl Component for MainWindow {
                             }
                             let break_window_init = BreakWindowInit {
                                 idle_monitor_arc: self.idle_monitor_arc.clone(),
-                                last_idle_info: self.last_idle_info.clone(),
+                                last_idle_info_recv: self.last_idle_info_recv.clone(),
                             };
                             let break_window =
                                 BreakWindow::builder().launch(break_window_init).detach();
@@ -267,7 +268,7 @@ impl Component for MainWindow {
                         }
                     },
                 }
-                self.previous_mode_state = idle_info.last_mode_state;
+                self.previous_mode_state = self.last_idle_info.last_mode_state;
                 let visible = *self.show_main_window.borrow();
                 root.set_visible(visible);
             }
@@ -285,7 +286,7 @@ impl Component for MainWindow {
             }
             MainWindowMsg::ToggleReadingMode => {
                 self._unwrapped_idle_monitor()
-                    .set_reading_mode(!self.last_idle_info.borrow().reading_mode);
+                    .set_reading_mode(!self.last_idle_info.reading_mode);
             }
         }
     }
@@ -298,6 +299,7 @@ impl Component for MainWindow {
     ) {
         match message {
             Self::CommandOutput::TriggerUpdate => {
+                self.last_idle_info = self.last_idle_info_recv.borrow().clone();
                 sender.input(MainWindowMsg::Update);
             }
         }
