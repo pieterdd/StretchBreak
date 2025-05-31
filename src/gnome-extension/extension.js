@@ -206,7 +206,7 @@ const Indicator = GObject.registerClass(
         }
     });
 
-export default class IndicatorExampleExtension extends Extension {
+export default class StretchBreakCompanionExtension extends Extension {
     _onWidgetInfoUpdated(_emitter, _senderName, rawWidgetInfo) {
         const widgetInfo = JSON.parse(rawWidgetInfo);
         if (this._indicator) {
@@ -235,6 +235,7 @@ export default class IndicatorExampleExtension extends Extension {
 
     disable() {
         this._dbusClient.unwatch();
+        this._dbusClient = null;
         this._indicator.destroy();
         this._indicator = null;
     }
