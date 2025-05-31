@@ -43,7 +43,7 @@ const DBUS_IFACE = `
         </method>
     </interface>
 </node>`;
-const Proxy = Gio.DBusProxy.makeProxyWrapper(DBUS_IFACE);
+const ProxyWrapper = Gio.DBusProxy.makeProxyWrapper(DBUS_IFACE);
 
 function debugLog(...args) {
     args[0] = `[stretch-break] ${args[0]}`;
@@ -73,7 +73,7 @@ class DBusClient {
     _onServerConnected() {
         debugLog("Server process connected");
 
-        this._proxy = Proxy(
+        this._proxy = ProxyWrapper(
             Gio.DBus.session,
             'io.github.pieterdd.StretchBreak.Core',
             '/io/github/pieterdd/StretchBreak/Core',
@@ -134,7 +134,7 @@ const Indicator = GObject.registerClass(
         _init(extensionPath, dbusClient) {
             super._init(0.0, _('Stretch Break'));
 
-            let box = new St.BoxLayout({ style_class: 'panel-status-indicators-box' });
+            const box = new St.BoxLayout({ style_class: 'panel-status-indicators-box' });
             const gicon = Gio.icon_new_for_string(`${extensionPath}/logo-mono-128x128.png`);
             box.add_child(new St.Icon({
                 gicon,
@@ -154,7 +154,7 @@ const Indicator = GObject.registerClass(
             box.add_child(this._prebreakLabel);
             this.add_child(box);
 
-            let itemToggle = new PopupMenu.PopupMenuItem(_('Toggle window'));
+            const itemToggle = new PopupMenu.PopupMenuItem(_('Toggle window'));
             itemToggle.connect('activate', () => {
                 dbusClient.toggleWindow();
             });
