@@ -1,8 +1,9 @@
 {
   "name": "Stretch Break Companion",
-  "description": "GNOME integration for Stretch Break.",
   "uuid": "stretch-break-companion@pieterdd.github.io",
+  "description": "GNOME Shell integration for Stretch Break, a utility that helps you take regular breaks.",
   "shell-version": [
     "48"
-  ]
+  ],
+  "url": "https://github.com/pieterdd/StretchBreak/"
 }
