@@ -2150,6 +2150,7 @@ dependencies = [
  "gtk4",
  "libadwaita",
  "mockall",
+ "regex",
  "relm4",
  "relm4-icons",
  "rodio",

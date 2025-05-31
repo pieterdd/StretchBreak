@@ -11,6 +11,7 @@ use crate::frontend::formatting::format_timer_timecode;
 use adw::prelude::{ActionRowExt, PreferencesRowExt};
 use chrono::{Local, TimeDelta, Utc};
 use gtk::prelude::{BoxExt, ButtonExt, GtkWindowExt, OrientableExt, ToggleButtonExt, WidgetExt};
+use regex::Regex;
 use relm4::RelmWidgetExt;
 use relm4::prelude::ComponentParts;
 use relm4::{Component, ComponentController, ComponentSender, Controller};
@@ -218,24 +219,37 @@ impl Component for MainWindow {
                         ModeState::PreBreak { .. } => {}
                         _ => {
                             // Try to warn about prebreak if notify-send is installed
-                            match Command::new("notify-send")
+                            match Command::new("gdbus")
                                 .args([
-                                    "-t",
-                                    "5000",
-                                    "-e",
-                                    "-a",
+                                    "call",
+                                    "--session",
+                                    "--dest",
+                                    "org.freedesktop.Notifications",
+                                    "--object-path",
+                                    "/org/freedesktop/Notifications",
+                                    "--method",
+                                    "org.freedesktop.Notifications.Notify",
                                     "Stretch Break",
-                                    "-u",
-                                    "critical",
-                                    "-p",
+                                    "0",
+                                    "io.github.pieterdd.StretchBreak",
                                     "Time to stretch",
                                     "Break will start when mouse and keyboard are released.",
+                                    "[]",
+                                    "{\"urgency\": <int32 2>}",
+                                    "0",
                                 ])
                                 .output()
                             {
                                 Ok(out) => {
-                                    self.open_prebreak_notification_id =
-                                        Some(String::from_utf8(out.stdout).unwrap());
+                                    let str_output = String::from_utf8(out.stdout).unwrap();
+                                    let re = Regex::new(r"\(uint32 ([0-9]+),\)").unwrap();
+
+                                    if let Some(captures) = re.captures(&str_output) {
+                                        if let Some(number) = captures.get(1) {
+                                            self.open_prebreak_notification_id =
+                                                Some(String::from(number.as_str()));
+                                        }
+                                    }
                                 }
                                 Err(_) => {}
                             }
@@ -245,13 +259,17 @@ impl Component for MainWindow {
                         ModeState::Break { .. } => {}
                         _ => {
                             if let Some(notification_id) = &self.open_prebreak_notification_id {
-                                Command::new("dbus-send")
+                                Command::new("gdbus")
                                     .args([
-                                        "--print-reply",
-                                        "--dest=org.freedesktop.Notifications",
+                                        "call",
+                                        "--session",
+                                        "--dest",
+                                        "org.freedesktop.Notifications",
+                                        "--object-path",
                                         "/org/freedesktop/Notifications",
+                                        "--method",
                                         "org.freedesktop.Notifications.CloseNotification",
-                                        &format!("uint32:{}", notification_id),
+                                        notification_id,
                                     ])
                                     .output()
                                     .ok();
