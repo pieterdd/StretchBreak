@@ -207,14 +207,6 @@ const Indicator = GObject.registerClass(
     });
 
 export default class IndicatorExampleExtension extends Extension {
-    constructor(...args) {
-        super(...args);
-        this._dbusClient = new DBusClient(
-            this._onServerDisconnected.bind(this),
-            this._onWidgetInfoUpdated.bind(this),
-        );
-    }
-
     _onWidgetInfoUpdated(_emitter, _senderName, rawWidgetInfo) {
         const widgetInfo = JSON.parse(rawWidgetInfo);
         if (this._indicator) {
@@ -232,6 +224,10 @@ export default class IndicatorExampleExtension extends Extension {
     }
 
     enable() {
+        this._dbusClient = new DBusClient(
+            this._onServerDisconnected.bind(this),
+            this._onWidgetInfoUpdated.bind(this),
+        );
         this._dbusClient.watch();
         this._indicator = new Indicator(this.path, this._dbusClient);
         Main.panel.addToStatusArea(this.uuid, this._indicator);
