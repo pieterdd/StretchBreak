@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.pieterdd.StretchBreak</id>
+
+  <name>Stretch Break</name>
+  <summary>Reminds you to take regular breaks</summary>
+  <developer id="io.github.pieterdd">
+    <name>pieterdd</name>
+  </developer>
+
+  <metadata_license>MIT</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <content_rating type="oars-1.1" />
+
+  <branding>
+    <color type="primary" scheme_preference="light">#ebd1d1</color>
+    <color type="primary" scheme_preference="dark">#420925</color>
+  </branding>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>
+        https://raw.githubusercontent.com/pieterdd/StretchBreak/acec0c51e2f7a1c9345a6e5d518906b355617c60/docs/mainWindow.png
+      </image>
+      <caption>Main window</caption>
+    </screenshot>
+    <screenshot>
+      <image>
+        https://raw.githubusercontent.com/pieterdd/StretchBreak/acec0c51e2f7a1c9345a6e5d518906b355617c60/docs/gnomeShellWidget.png
+      </image>
+      <caption>GNOME Shell widget (installed separately)</caption>
+    </screenshot>
+  </screenshots>
+
+  <url type="homepage">https://github.com/pieterdd/StretchBreak</url>
+
+  <description>
+    <p>
+        Ergonomic support utility that regularly reminds you to take breaks
+        from using your computer, similar to tools like Workrave and Safe Eyes.
+    </p>
+    <p>With Stretch Break you can:</p>
+    <ul>
+      <li>Get break reminders every 20 minutes</li>
+      <li>Automatically pause the break countdown when you're not using your computer</li>
+      <li>Automatically reset your break countdown when you've been away long enough</li>
+      <li>Mute break reminders for a period of time</li>
+      <li>Enable reading mode, where the break countdown doesn't pause while mouse and keyboard are idle</li>
+    </ul>
+    <p>
+      Stretch Break works best with its accompanying GNOME Shell extension installed, which will
+      display remaining time in your system tray.
+    </p>
+  </description>
+
+  <releases>
+    <release version="0.1.2" date="2025-05-28">
+      <description>
+        <ul>
+            <li>Implement reading mode</li>
+            <li>Bump user-idle2</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+
+  <launchable type="desktop-id">io.github.pieterdd.StretchBreak.desktop</launchable>
+</component>
