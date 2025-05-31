@@ -6,10 +6,10 @@ Stretch Break is a digital wellbeing tool that helps you take regular breaks. It
 
 The application was written with GNOME and Linux in mind, but the code is mostly cross-platform. It is accompanied by a GNOME Shell extension that counts down to your next break.
 
-<center>
+<p align="center">
     <img src="docs/mainWindow.png" alt="Main window" /><br>
     <img src="docs/gnomeShellWidget.png" alt="GNOME Shell widget" />
-</center>
+</p>
 
 
 ## Install
