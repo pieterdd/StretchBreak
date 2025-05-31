@@ -135,7 +135,7 @@ const Indicator = GObject.registerClass(
             super._init(0.0, _('Stretch Break'));
 
             const box = new St.BoxLayout({ style_class: 'panel-status-indicators-box' });
-            const gicon = Gio.icon_new_for_string(`${extensionPath}/logo-mono-128x128.png`);
+            const gicon = Gio.icon_new_for_string(`${extensionPath}/logo-white.svg`);
             box.add_child(new St.Icon({
                 gicon,
                 width: 20,
