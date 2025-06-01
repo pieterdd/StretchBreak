@@ -12,10 +12,12 @@ use dbus::run_server;
 use relm4::RelmApp;
 use rodio::{Decoder, OutputStream, Sink};
 use single_instance::SingleInstance;
+use tokio::runtime::Runtime;
 use tokio::sync::watch::{Sender, channel};
 use tracing::error;
 mod frontend;
 use frontend::main_window::{MainWindow, MainWindowInit};
+use zbus::{Connection, Error, Proxy};
 mod dbus;
 
 const APP_ID: &str = "io.github.pieterdd.StretchBreak";
@@ -138,6 +140,23 @@ fn main() {
 
         process::exit(0);
     } else {
-        println!("Stretch Break is already running");
+        println!("Stretch Break is already running, revealing its window");
+        Runtime::new()
+            .unwrap()
+            .block_on(reveal_existing_main_window())
+            .ok();
     }
+}
+
+async fn reveal_existing_main_window() -> Result<(), Error> {
+    let connection = Connection::session().await?;
+    let p = Proxy::new(
+        &connection,
+        format!("{APP_ID}.Core"),
+        "/io/github/pieterdd/StretchBreak/Core",
+        format!("{APP_ID}.Core"),
+    )
+    .await?;
+    let _: () = p.call("RevealWindow", &()).await?;
+    Ok(())
 }

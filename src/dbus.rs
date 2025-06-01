@@ -118,6 +118,10 @@ impl DBusServer {
             .expect("Send failed");
     }
 
+    fn reveal_window(&self) {
+        self.show_main_window_send.send(true).expect("Send failed");
+    }
+
     fn mute_for_minutes(&self, num_minutes: i64) {
         let unmute_time = Utc::now()
             .checked_add_signed(TimeDelta::minutes(num_minutes))
