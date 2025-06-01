@@ -10,11 +10,9 @@ use chrono::TimeDelta;
 use gtk::prelude::{BoxExt, ButtonExt, GtkWindowExt, OrientableExt, WidgetExt};
 use relm4::{Component, ComponentParts};
 use relm4::{ComponentSender, RelmWidgetExt};
-use tokio::sync::watch::Receiver;
 
 pub struct BreakWindowInit {
     pub idle_monitor_arc: Arc<Mutex<IdleMonitor<IdleChecker, Clock>>>,
-    pub last_idle_info_recv: Receiver<IdleInfo>,
 }
 
 #[derive(Debug)]
@@ -31,7 +29,6 @@ pub enum BreakWindowMsg {
 
 pub struct BreakWindow {
     idle_monitor_arc: Arc<Mutex<IdleMonitor<IdleChecker, Clock>>>,
-    last_idle_info_recv: Receiver<IdleInfo>,
     last_idle_info: IdleInfo,
     user_is_active: bool,
 }
@@ -111,10 +108,9 @@ impl Component for BreakWindow {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let last_idle_info = init.last_idle_info_recv.borrow().clone();
+        let last_idle_info = init.idle_monitor_arc.lock().unwrap().get_last_idle_info();
         let model = BreakWindow {
             idle_monitor_arc: init.idle_monitor_arc,
-            last_idle_info_recv: init.last_idle_info_recv,
             last_idle_info: last_idle_info,
             user_is_active: false,
         };
@@ -168,7 +164,7 @@ impl Component for BreakWindow {
         sender: ComponentSender<Self>,
         _root: &Self::Root,
     ) {
-        self.last_idle_info = self.last_idle_info_recv.borrow().clone();
+        self.last_idle_info = self.idle_monitor_arc.lock().unwrap().get_last_idle_info();
         if let ModeState::Break { idle_state, .. } = self.last_idle_info.last_mode_state {
             self.user_is_active = idle_state.is_user_active();
         }

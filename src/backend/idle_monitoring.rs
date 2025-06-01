@@ -378,6 +378,10 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
         self.last_idle_info.reading_mode = reading_mode;
     }
 
+    pub fn get_last_idle_info(&self) -> IdleInfo {
+        self.last_idle_info.clone()
+    }
+
     pub fn refresh_idle_info(&mut self) -> IdleInfo {
         let idle_since_seconds = self.idle_checker.get_idle_time_in_seconds();
         let check_time = self.clock.get_time();
