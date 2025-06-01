@@ -166,18 +166,33 @@ const Indicator = GObject.registerClass(
                 dbusClient.setReadingMode(value);
             });
             this.menu.addMenuItem(this._readingModeSwitch);
+
             this._modeSeparator = new PopupMenu.PopupSeparatorMenuItem("");
+
             this.menu.addMenuItem(this._modeSeparator);
             this._unmuteMenuItem = new PopupMenu.PopupMenuItem("Unmute");
             this._unmuteMenuItem.connect('activate', () => {
                 dbusClient.unmute();
             });
             this.menu.addMenuItem(this._unmuteMenuItem);
-            this._mute30mMenuItem = new PopupMenu.PopupMenuItem("Mute for 30 minutes");
+
+            this._muteSubMenuItem = new PopupMenu.PopupSubMenuMenuItem("Mute for...");
+            this._mute30mMenuItem = new PopupMenu.PopupMenuItem("30 minutes");
             this._mute30mMenuItem.connect('activate', () => {
                 dbusClient.muteForMinutes(30);
             });
-            this.menu.addMenuItem(this._mute30mMenuItem);
+            this._muteSubMenuItem.menu.addMenuItem(this._mute30mMenuItem);
+            this._mute60mMenuItem = new PopupMenu.PopupMenuItem("1 hour");
+            this._mute60mMenuItem.connect('activate', () => {
+                dbusClient.muteForMinutes(60);
+            });
+            this._muteSubMenuItem.menu.addMenuItem(this._mute60mMenuItem);
+            this._mute6hMenuItem = new PopupMenu.PopupMenuItem("6 hours");
+            this._mute6hMenuItem.connect('activate', () => {
+                dbusClient.muteForMinutes(60*6);
+            });
+            this._muteSubMenuItem.menu.addMenuItem(this._mute6hMenuItem);
+            this.menu.addMenuItem(this._muteSubMenuItem);
         }
 
         updateNormalLabel(text) {
