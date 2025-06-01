@@ -24,7 +24,7 @@ adw = { version = "0.7.2", package = "libadwaita", features = ["v1_5", "v1_7"] }
 chrono = { version = "0.4.40", features = ["serde"] }
 clap = { version = "4.5.38", features = ["cargo", "derive"] }
 gtk = { version = "0.9.6", package = "gtk4" }
-regex = "1.11.1"
+libnotify = "1.0.3"
 relm4 = { version = "0.9.1", features = ["gnome_47", "libadwaita"] }
 relm4-icons = "0.9.0"
 rodio = "0.20.1"

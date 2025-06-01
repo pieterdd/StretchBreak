@@ -1,4 +1,3 @@
-use std::process::Command;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::sleep;
 use std::time::Duration;
@@ -11,7 +10,7 @@ use crate::frontend::formatting::format_timer_timecode;
 use adw::prelude::{ActionRowExt, PreferencesRowExt};
 use chrono::{Local, TimeDelta, Utc};
 use gtk::prelude::{BoxExt, ButtonExt, GtkWindowExt, OrientableExt, ToggleButtonExt, WidgetExt};
-use regex::Regex;
+use libnotify::{Notification, Urgency};
 use relm4::RelmWidgetExt;
 use relm4::prelude::ComponentParts;
 use relm4::{Component, ComponentController, ComponentSender, Controller};
@@ -46,7 +45,7 @@ pub struct MainWindow {
     last_idle_info: IdleInfo,
     break_window: Option<Controller<BreakWindow>>,
     show_main_window: Receiver<bool>,
-    open_prebreak_notification_id: Option<String>,
+    prebreak_notification: Option<Notification>,
 }
 
 #[relm4::component(pub)]
@@ -193,7 +192,7 @@ impl Component for MainWindow {
             last_idle_info: previous_last_idle_info,
             break_window: None,
             show_main_window: init.show_main_window,
-            open_prebreak_notification_id: None,
+            prebreak_notification: None,
         };
         let widgets = view_output!();
 
@@ -219,61 +218,27 @@ impl Component for MainWindow {
                         ModeState::PreBreak { .. } => {}
                         _ => {
                             // Try to warn about prebreak if notify-send is installed
-                            match Command::new("gdbus")
-                                .args([
-                                    "call",
-                                    "--session",
-                                    "--dest",
-                                    "org.freedesktop.Notifications",
-                                    "--object-path",
-                                    "/org/freedesktop/Notifications",
-                                    "--method",
-                                    "org.freedesktop.Notifications.Notify",
-                                    "Stretch Break",
-                                    "0",
-                                    "io.github.pieterdd.StretchBreak",
+                            #[cfg(target_os = "linux")]
+                            {
+                                let prebreak_notification = Notification::new(
                                     "Time to stretch",
                                     "Break will start when mouse and keyboard are released.",
-                                    "[]",
-                                    "{\"urgency\": <int32 2>}",
-                                    "0",
-                                ])
-                                .output()
-                            {
-                                Ok(out) => {
-                                    let str_output = String::from_utf8(out.stdout).unwrap();
-                                    let re = Regex::new(r"\(uint32 ([0-9]+),\)").unwrap();
-
-                                    if let Some(captures) = re.captures(&str_output) {
-                                        if let Some(number) = captures.get(1) {
-                                            self.open_prebreak_notification_id =
-                                                Some(String::from(number.as_str()));
-                                        }
-                                    }
-                                }
-                                Err(_) => {}
+                                    None,
+                                );
+                                prebreak_notification.set_urgency(Urgency::Critical);
+                                prebreak_notification.show().ok();
+                                self.prebreak_notification = Some(prebreak_notification);
                             }
                         }
                     },
                     ModeState::Break { .. } => match self.previous_mode_state {
                         ModeState::Break { .. } => {}
                         _ => {
-                            if let Some(notification_id) = &self.open_prebreak_notification_id {
-                                Command::new("gdbus")
-                                    .args([
-                                        "call",
-                                        "--session",
-                                        "--dest",
-                                        "org.freedesktop.Notifications",
-                                        "--object-path",
-                                        "/org/freedesktop/Notifications",
-                                        "--method",
-                                        "org.freedesktop.Notifications.CloseNotification",
-                                        notification_id,
-                                    ])
-                                    .output()
-                                    .ok();
-                                self.open_prebreak_notification_id = None;
+                            if let Some(notification) = &self.prebreak_notification {
+                                if let Err(_) = notification.close() {
+                                    println!("Warning: failed to close notification");
+                                }
+                                self.prebreak_notification = None;
                             }
                             let break_window_init = BreakWindowInit {
                                 idle_monitor_arc: self.idle_monitor_arc.clone(),

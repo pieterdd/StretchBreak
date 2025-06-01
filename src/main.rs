@@ -100,6 +100,11 @@ struct Cli {
 }
 
 fn main() {
+    #[cfg(target_os = "linux")]
+    if let Err(_) = libnotify::init(APP_ID) {
+        println!("Warning: could not initialize push notifications");
+    }
+
     let cli = Cli::parse();
 
     let instance = SingleInstance::new(APP_ID).expect("Initializing single instance object failed");
