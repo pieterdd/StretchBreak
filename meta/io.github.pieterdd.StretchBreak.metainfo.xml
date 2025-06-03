@@ -14,8 +14,8 @@
   <content_rating type="oars-1.1" />
 
   <branding>
-    <color type="primary" scheme_preference="light">#ebd1d1</color>
-    <color type="primary" scheme_preference="dark">#420925</color>
+    <color type="primary" scheme_preference="light">#f2dce8</color>
+    <color type="primary" scheme_preference="dark">#17010c</color>
   </branding>
 
   <screenshots>
