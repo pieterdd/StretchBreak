@@ -2,22 +2,27 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::sleep;
 use std::time::Duration;
 
+use crate::APP_ID;
 use crate::backend::idle_monitoring::{
     BREAK_LENGTH_SECS, Clock, DebouncedIdleState, IdleChecker, IdleInfo, IdleMonitor, ModeState,
     REQUIRED_PREBREAK_IDLE_STREAK_SECONDS, TIME_TO_BREAK_SECS,
 };
 use crate::frontend::formatting::format_timer_timecode;
-use adw::prelude::{ActionRowExt, PreferencesRowExt};
+use adw::prelude::{ActionRowExt, AdwDialogExt, PreferencesRowExt};
 use chrono::{DateTime, Local, TimeDelta, Utc};
 use gtk::prelude::{BoxExt, ButtonExt, GtkWindowExt, OrientableExt, WidgetExt};
 use libnotify::{Notification, Urgency};
 use relm4::RelmWidgetExt;
+use relm4::actions::{RelmAction, RelmActionGroup};
 use relm4::prelude::ComponentParts;
 use relm4::{Component, ComponentController, ComponentSender, Controller};
 use relm4_icons::icon_names;
 use tokio::sync::watch::Receiver;
 
 use super::break_window::{BreakWindow, BreakWindowInit};
+
+relm4::new_action_group!(TopNavActionGroup, "top_nav");
+relm4::new_stateless_action!(AboutAction, TopNavActionGroup, "about");
 
 pub struct MainWindowInit {
     pub idle_monitor_arc: Arc<Mutex<IdleMonitor<IdleChecker, Clock>>>,
@@ -55,14 +60,27 @@ impl Component for MainWindow {
     type Output = ();
     type CommandOutput = MainWindowCmd;
 
+    menu! {
+        top_nav: {
+            section! {
+                "About Stretch Break" => AboutAction,
+            }
+        }
+    }
+
     view! {
-        adw::ApplicationWindow {
+        main_window = &adw::ApplicationWindow {
             set_title: Some("Stretch Break"),
             set_default_width: 400,
             set_default_height: 200,
 
             adw::ToolbarView {
-                add_top_bar = &adw::HeaderBar {},
+                add_top_bar = &adw::HeaderBar {
+                    pack_start = &gtk::MenuButton {
+                        set_icon_name: "open-menu-symbolic",
+                        set_menu_model: Some(&top_nav)
+                    }
+                },
 
                 #[wrap(Some)]
                 set_content = &gtk::Box {
@@ -235,6 +253,24 @@ impl Component for MainWindow {
             prebreak_notification: None,
         };
         let widgets = view_output!();
+
+        let mut group = RelmActionGroup::<TopNavActionGroup>::new();
+        let cloned_root = root.clone();
+        let about: RelmAction<AboutAction> = RelmAction::new_stateless(move |_| {
+            let dialog = adw::AboutDialog::builder()
+                .application_name("Stretch Break")
+                .application_icon(APP_ID)
+                .developer_name("pieterdd")
+                .version(env!("CARGO_PKG_VERSION"))
+                .website("https://github.com/pieterdd/StretchBreak/")
+                .build();
+            dialog.present(Some(&cloned_root));
+        });
+        group.add_action(about);
+        let actions = group.into_action_group();
+        widgets
+            .main_window
+            .insert_action_group("top_nav", Some(&actions));
 
         sender.input(MainWindowMsg::Update);
         ComponentParts { model, widgets }
