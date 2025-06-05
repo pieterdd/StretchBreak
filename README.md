@@ -15,7 +15,7 @@ The application was written with GNOME and Linux in mind, but the code is mostly
 ## Install
 
 ### Main app
-- **Packaged install**: Flatpak distribution is coming soon!
+- **Packaged install**: Get it on Flathub [here](https://flathub.org/apps/io.github.pieterdd.StretchBreak).
 
 - **Manual install**: Run `cargo build --release`. You may need to install additional system-level build dependencies (see [Dockerfile](Dockerfile) for reference).
 
