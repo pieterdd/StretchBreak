@@ -34,6 +34,10 @@ const DBUS_IFACE = `
             <arg type="s" />
         </signal>
         <method name="ToggleWindow"></method>
+        <method name="Mute"></method>
+        <method name="SnoozeForMinutes">
+            <arg type="x" direction="in" />
+        </method>
         <method name="MuteForMinutes">
             <arg type="x" direction="in" />
         </method>
@@ -104,13 +108,22 @@ class DBusClient {
     toggleWindow() {
         this._proxy.ToggleWindowSync();
     }
+    
+    mute() {
+        this._proxy.MuteSync();
+    }
 
     unmute() {
         this._proxy.UnmuteSync();
     }
 
-    muteForMinutes(numMinutes) {
-        this._proxy.MuteForMinutesSync(numMinutes);
+    snoozeFor(numMinutes) {
+        try {
+            this._proxy.SnoozeForMinutesSync(numMinutes);
+        } catch (e) {
+            debugLog('Fall back to old MuteForMinutes API');
+            this._proxy.MuteForMinutesSync(numMinutes);
+        }
     }
 
     setReadingMode(value) {
@@ -133,14 +146,16 @@ const Indicator = GObject.registerClass(
     class Indicator extends PanelMenu.Button {
         _init(extensionPath, dbusClient) {
             super._init(0.0, _('Stretch Break'));
+            this._extensionPath = extensionPath;
 
             const box = new St.BoxLayout({ style_class: 'panel-status-indicators-box' });
             const gicon = Gio.icon_new_for_string(`${extensionPath}/logo-white.svg`);
-            box.add_child(new St.Icon({
+            this._logo = new St.Icon({
                 gicon,
                 width: 20,
                 height: 20,
-            }));
+            });
+            box.add_child(this._logo);
             this._normalLabel = new St.Label({
                 visible: false,
                 y_align: Clutter.ActorAlign.CENTER,
@@ -170,29 +185,36 @@ const Indicator = GObject.registerClass(
             this._modeSeparator = new PopupMenu.PopupSeparatorMenuItem("");
 
             this.menu.addMenuItem(this._modeSeparator);
+
+            this._snoozeSubMenuItem = new PopupMenu.PopupSubMenuMenuItem("Snooze for...");
+            this._snooze30mMenuItem = new PopupMenu.PopupMenuItem("30 minutes");
+            this._snooze30mMenuItem.connect('activate', () => {
+                dbusClient.snoozeFor(30);
+            });
+            this._snoozeSubMenuItem.menu.addMenuItem(this._snooze30mMenuItem);
+            this._snooze60mMenuItem = new PopupMenu.PopupMenuItem("1 hour");
+            this._snooze60mMenuItem.connect('activate', () => {
+                dbusClient.snoozeFor(60);
+            });
+            this._snoozeSubMenuItem.menu.addMenuItem(this._snooze60mMenuItem);
+            this._snooze6hMenuItem = new PopupMenu.PopupMenuItem("3 hours");
+            this._snooze6hMenuItem.connect('activate', () => {
+                dbusClient.snoozeFor(60*3);
+            });
+            this._snoozeSubMenuItem.menu.addMenuItem(this._snooze6hMenuItem);
+            this.menu.addMenuItem(this._snoozeSubMenuItem);
+
+            this._muteMenuItem = new PopupMenu.PopupMenuItem("Mute");
+            this._muteMenuItem.connect('activate', () => {
+                dbusClient.mute();
+            });
+            this.menu.addMenuItem(this._muteMenuItem);
+
             this._unmuteMenuItem = new PopupMenu.PopupMenuItem("Unmute");
             this._unmuteMenuItem.connect('activate', () => {
                 dbusClient.unmute();
             });
             this.menu.addMenuItem(this._unmuteMenuItem);
-
-            this._muteSubMenuItem = new PopupMenu.PopupSubMenuMenuItem("Mute for...");
-            this._mute30mMenuItem = new PopupMenu.PopupMenuItem("30 minutes");
-            this._mute30mMenuItem.connect('activate', () => {
-                dbusClient.muteForMinutes(30);
-            });
-            this._muteSubMenuItem.menu.addMenuItem(this._mute30mMenuItem);
-            this._mute60mMenuItem = new PopupMenu.PopupMenuItem("1 hour");
-            this._mute60mMenuItem.connect('activate', () => {
-                dbusClient.muteForMinutes(60);
-            });
-            this._muteSubMenuItem.menu.addMenuItem(this._mute60mMenuItem);
-            this._mute6hMenuItem = new PopupMenu.PopupMenuItem("6 hours");
-            this._mute6hMenuItem.connect('activate', () => {
-                dbusClient.muteForMinutes(60*6);
-            });
-            this._muteSubMenuItem.menu.addMenuItem(this._mute6hMenuItem);
-            this.menu.addMenuItem(this._muteSubMenuItem);
         }
 
         updateNormalLabel(text) {
@@ -205,15 +227,23 @@ const Indicator = GObject.registerClass(
             this._prebreakLabel.text = text;
         }
 
-        updateMuteStatus(mutedUntilTime) {
-            if (mutedUntilTime) {
+        updatePresenceMode(snoozedUntilTime, isMuted) {
+            if (snoozedUntilTime || isMuted) {
                 this._normalLabel.style_class = 'muted';
-                this._modeSeparator.label.text = `Muted until ${mutedUntilTime}`;
+                this._logo.gicon = Gio.icon_new_for_string(`${this._extensionPath}/logo-dimmed.svg`);
             } else {
                 this._normalLabel.style_class = '';
                 this._modeSeparator.label.text = '';
+                this._logo.gicon = Gio.icon_new_for_string(`${this._extensionPath}/logo-white.svg`);
             }
-            this._unmuteMenuItem.sensitive = !!mutedUntilTime;
+
+            if (isMuted) {
+                this._modeSeparator.label.text = 'Muted';
+            } else if (snoozedUntilTime) {
+                this._modeSeparator.label.text = `Snoozed until ${snoozedUntilTime}`;
+            }
+            this._muteMenuItem.sensitive = !isMuted;
+            this._unmuteMenuItem.sensitive = (snoozedUntilTime || isMuted);
         }
 
         updateReadingModeStatus(value) {
@@ -225,9 +255,14 @@ export default class StretchBreakCompanionExtension extends Extension {
     _onWidgetInfoUpdated(_emitter, _senderName, rawWidgetInfo) {
         const widgetInfo = JSON.parse(rawWidgetInfo);
         if (this._indicator) {
+            // Backwards compatibility: remove muted_until_time in 0.1.6
+            const presenceModeType = widgetInfo.presence_mode?.type; 
             this._indicator.updateNormalLabel(widgetInfo.normal_timer_value);
             this._indicator.updatePrebreakLabel(widgetInfo.prebreak_timer_value);
-            this._indicator.updateMuteStatus(widgetInfo.muted_until_time);
+            this._indicator.updatePresenceMode(
+                widgetInfo.snoozed_until_time ?? widgetInfo.muted_until_time,
+                presenceModeType === 'muted',
+            );
             this._indicator.updateReadingModeStatus(widgetInfo.reading_mode);
         }
     }
