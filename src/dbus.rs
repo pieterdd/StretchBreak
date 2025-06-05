@@ -11,7 +11,7 @@ use zbus::{connection, interface};
 
 use crate::{
     backend::idle_monitoring::{
-        Clock, IdleChecker, IdleInfo, IdleMonitor, ModeState, TIME_TO_BREAK_SECS,
+        Clock, IdleChecker, IdleInfo, IdleMonitor, ModeState, PresenceMode, TIME_TO_BREAK_SECS,
     },
     frontend::formatting::{format_timedelta_timecode, format_timer_timecode},
 };
@@ -20,7 +20,9 @@ use crate::{
 struct WidgetInfo {
     normal_timer_value: String,
     prebreak_timer_value: String,
-    muted_until_time: Option<String>,
+    presence_mode: PresenceMode,
+    snoozed_until_time: Option<String>,
+    muted_until_time: Option<String>, // Backwards compatibility - remove in 0.1.6
     reading_mode: bool,
 }
 
@@ -39,16 +41,22 @@ fn get_widget_info(idle_info: &IdleInfo) -> WidgetInfo {
             }
             _ => String::from(""),
         },
-        muted_until_time: match idle_info.last_mode_state {
-            ModeState::Normal { muted_until, .. } => match muted_until {
-                Some(timestamp) => Some(format!(
-                    "{}",
-                    DateTime::<Local>::from(timestamp).format("%R")
-                )),
-                None => None,
-            },
-            ModeState::Break { .. } => None,
-            ModeState::PreBreak { .. } => None,
+        presence_mode: idle_info.presence_mode,
+        snoozed_until_time: match idle_info.presence_mode {
+            PresenceMode::Active => None,
+            PresenceMode::SnoozedUntil(timestamp) => Some(format!(
+                "{}",
+                DateTime::<Local>::from(timestamp).format("%R")
+            )),
+            PresenceMode::Muted => None,
+        },
+        muted_until_time: match idle_info.presence_mode {
+            PresenceMode::Active => None,
+            PresenceMode::SnoozedUntil(timestamp) => Some(format!(
+                "{}",
+                DateTime::<Local>::from(timestamp).format("%R")
+            )),
+            PresenceMode::Muted => Some(format!("unmuted")),
         },
         reading_mode: idle_info.reading_mode,
     }
@@ -122,12 +130,22 @@ impl DBusServer {
         self.show_main_window_send.send(true).expect("Send failed");
     }
 
-    fn mute_for_minutes(&self, num_minutes: i64) {
+    fn mute(&self) {
+        let mut monitor = self._unlock_monitor();
+        monitor.mute();
+    }
+
+    fn snooze_for_minutes(&self, num_minutes: i64) {
         let unmute_time = Utc::now()
             .checked_add_signed(TimeDelta::minutes(num_minutes))
             .unwrap();
         let mut monitor = self._unlock_monitor();
-        monitor.mute_until(unmute_time);
+        monitor.snooze(unmute_time);
+    }
+
+    // Deprecated - Remove in 0.1.6
+    fn mute_for_minutes(&self, num_minutes: i64) {
+        self.snooze_for_minutes(num_minutes);
     }
 
     fn unmute(&self) {
@@ -146,7 +164,7 @@ mod tests {
     use chrono::{Local, TimeDelta, TimeZone, Utc};
 
     use crate::{
-        backend::idle_monitoring::{DebouncedIdleState, IdleInfo, ModeState},
+        backend::idle_monitoring::{DebouncedIdleState, IdleInfo, ModeState, PresenceMode},
         dbus::{WidgetInfo, get_widget_info},
     };
 
@@ -157,13 +175,13 @@ mod tests {
             idle_since_seconds: 2,
             last_checked: now,
             last_mode_state: ModeState::Normal {
-                muted_until: None,
                 progress_towards_break: TimeDelta::seconds(31),
                 progress_towards_reset: TimeDelta::seconds(2),
                 idle_state: DebouncedIdleState::Active {
                     active_since: now.checked_sub_signed(TimeDelta::seconds(20)).unwrap(),
                 },
             },
+            presence_mode: PresenceMode::Active,
             reading_mode: false,
         };
         assert_eq!(
@@ -171,6 +189,8 @@ mod tests {
             WidgetInfo {
                 normal_timer_value: String::from("19:29"),
                 prebreak_timer_value: String::from(""),
+                presence_mode: PresenceMode::Active,
+                snoozed_until_time: None,
                 muted_until_time: None,
                 reading_mode: false,
             }
@@ -184,13 +204,15 @@ mod tests {
             idle_since_seconds: 2,
             last_checked: now,
             last_mode_state: ModeState::Normal {
-                muted_until: Some(Utc.with_ymd_and_hms(2025, 2, 3, 12, 34, 11).unwrap()),
                 progress_towards_break: TimeDelta::seconds(31),
                 progress_towards_reset: TimeDelta::seconds(2),
                 idle_state: DebouncedIdleState::Active {
                     active_since: now.checked_sub_signed(TimeDelta::seconds(20)).unwrap(),
                 },
             },
+            presence_mode: PresenceMode::SnoozedUntil(
+                Utc.with_ymd_and_hms(2025, 2, 3, 12, 34, 11).unwrap(),
+            ),
             reading_mode: false,
         };
         assert_eq!(
@@ -198,6 +220,10 @@ mod tests {
             WidgetInfo {
                 normal_timer_value: String::from("19:29"),
                 prebreak_timer_value: String::from(""),
+                presence_mode: PresenceMode::SnoozedUntil(
+                    Utc.with_ymd_and_hms(2025, 2, 3, 12, 34, 11).unwrap(),
+                ),
+                snoozed_until_time: Some(String::from("13:34")),
                 muted_until_time: Some(String::from("13:34")),
                 reading_mode: false,
             }

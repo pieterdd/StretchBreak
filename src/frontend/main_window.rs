@@ -5,7 +5,7 @@ use std::time::Duration;
 use crate::APP_ID;
 use crate::backend::idle_monitoring::{
     BREAK_LENGTH_SECS, Clock, DebouncedIdleState, IdleChecker, IdleInfo, IdleMonitor, ModeState,
-    REQUIRED_PREBREAK_IDLE_STREAK_SECONDS, TIME_TO_BREAK_SECS,
+    PresenceMode, REQUIRED_PREBREAK_IDLE_STREAK_SECONDS, TIME_TO_BREAK_SECS,
 };
 use crate::frontend::formatting::format_timer_timecode;
 use adw::prelude::{ActionRowExt, AdwDialogExt, PreferencesRowExt};
@@ -24,6 +24,11 @@ use super::break_window::{BreakWindow, BreakWindowInit};
 relm4::new_action_group!(TopNavActionGroup, "top_nav");
 relm4::new_stateless_action!(AboutAction, TopNavActionGroup, "about");
 
+relm4::new_action_group!(SnoozeActionGroup, "snooze");
+relm4::new_stateless_action!(Snooze30mAction, SnoozeActionGroup, "snooze_30m");
+relm4::new_stateless_action!(Snooze1hAction, SnoozeActionGroup, "snooze_1h");
+relm4::new_stateless_action!(Snooze3hAction, SnoozeActionGroup, "snooze_6h");
+
 pub struct MainWindowInit {
     pub idle_monitor_arc: Arc<Mutex<IdleMonitor<IdleChecker, Clock>>>,
     pub last_idle_info: Receiver<IdleInfo>,
@@ -34,7 +39,8 @@ pub struct MainWindowInit {
 pub enum MainWindowMsg {
     Update,
     ForceBreak,
-    Mute { minutes: i64 },
+    Snooze { minutes: i64 },
+    Mute,
     Unmute,
     SetReadingMode(bool),
 }
@@ -64,6 +70,13 @@ impl Component for MainWindow {
         top_nav: {
             section! {
                 "About Stretch Break" => AboutAction,
+            }
+        },
+        snooze: {
+            section! {
+                "30 minutes" => Snooze30mAction,
+                "1 hour" => Snooze1hAction,
+                "3 hours" => Snooze3hAction,
             }
         }
     }
@@ -198,15 +211,14 @@ impl Component for MainWindow {
                                 adw::ActionRow {
                                     set_title: &format!("Break notifications"),
                                     #[watch]
-                                    set_subtitle: &match model.last_idle_info.last_mode_state {
-                                        ModeState::Normal { muted_until, .. } => match muted_until {
-                                            Some(timestamp) => format!("Muted until {}", DateTime::<Local>::from(timestamp).format("%R")),
-                                            None => format!("Currently enabled"),
-                                        },
-                                        _ => format!("Currently enabled"),
+                                    set_subtitle: &match model.last_idle_info.presence_mode {
+                                        PresenceMode::Active => format!("Enabled"),
+                                        PresenceMode::SnoozedUntil(timestamp) => format!("Snoozed until {}", DateTime::<Local>::from(timestamp).format("%R")),
+                                        PresenceMode::Muted => format!("Muted"),
                                     },
                                     add_suffix = &gtk::Box {
                                         set_valign: gtk::Align::Center,
+                                        set_spacing: 5,
 
                                         if model.last_idle_info.is_muted() {
                                             gtk::Button {
@@ -222,12 +234,18 @@ impl Component for MainWindow {
                                             gtk::Button {
                                                 set_icon_name: "audio-volume-muted-symbolic",
                                                 set_valign: gtk::Align::Center,
-                                                set_tooltip: "Mute for 30 minutes",
+                                                set_tooltip: "Mute",
                                                 connect_clicked[sender] => move |_| {
-                                                    sender.input(MainWindowMsg::Mute { minutes: 30 });
+                                                    sender.input(MainWindowMsg::Mute);
                                                 },
                                             }
                                         },
+                                        #[local_ref]
+                                        snooze_button -> gtk::MenuButton {
+                                            set_icon_name: "snooze-filled",
+                                            set_direction: gtk::ArrowType::Down,
+                                            set_menu_model: Some(&snooze),
+                                        }
                                     }
                                 }
                             }
@@ -252,9 +270,10 @@ impl Component for MainWindow {
             show_main_window: init.show_main_window,
             prebreak_notification: None,
         };
+        let snooze_button = gtk::MenuButton::builder().build();
         let widgets = view_output!();
 
-        let mut group = RelmActionGroup::<TopNavActionGroup>::new();
+        let mut top_nav_group = RelmActionGroup::<TopNavActionGroup>::new();
         let cloned_root = root.clone();
         let about: RelmAction<AboutAction> = RelmAction::new_stateless(move |_| {
             let dialog = adw::AboutDialog::builder()
@@ -266,11 +285,32 @@ impl Component for MainWindow {
                 .build();
             dialog.present(Some(&cloned_root));
         });
-        group.add_action(about);
-        let actions = group.into_action_group();
+        top_nav_group.add_action(about);
+        let top_nav_actions = top_nav_group.into_action_group();
         widgets
             .main_window
-            .insert_action_group("top_nav", Some(&actions));
+            .insert_action_group("top_nav", Some(&top_nav_actions));
+
+        let mut snooze_group = RelmActionGroup::<SnoozeActionGroup>::new();
+        let sender_copy1 = sender.clone();
+        let snooze_30m: RelmAction<Snooze30mAction> = RelmAction::new_stateless(move |_| {
+            sender_copy1.input(MainWindowMsg::Snooze { minutes: 30 });
+        });
+        snooze_group.add_action(snooze_30m);
+        let sender_copy2 = sender.clone();
+        let snooze_1h: RelmAction<Snooze1hAction> = RelmAction::new_stateless(move |_| {
+            sender_copy2.input(MainWindowMsg::Snooze { minutes: 60 });
+        });
+        snooze_group.add_action(snooze_1h);
+        let sender_copy3 = sender.clone();
+        let snooze_3h: RelmAction<Snooze3hAction> = RelmAction::new_stateless(move |_| {
+            sender_copy3.input(MainWindowMsg::Snooze { minutes: 60 * 3 });
+        });
+        snooze_group.add_action(snooze_3h);
+        let snooze_actions = snooze_group.into_action_group();
+        widgets
+            .snooze_button
+            .insert_action_group("snooze", Some(&snooze_actions));
 
         sender.input(MainWindowMsg::Update);
         ComponentParts { model, widgets }
@@ -333,11 +373,14 @@ impl Component for MainWindow {
             MainWindowMsg::ForceBreak => {
                 self._unwrapped_idle_monitor().force_break();
             }
-            MainWindowMsg::Mute { minutes } => {
+            MainWindowMsg::Snooze { minutes } => {
                 let unmute_timestamp = Utc::now()
                     .checked_add_signed(TimeDelta::minutes(minutes))
                     .unwrap();
-                self._unwrapped_idle_monitor().mute_until(unmute_timestamp);
+                self._unwrapped_idle_monitor().snooze(unmute_timestamp);
+            }
+            MainWindowMsg::Mute => {
+                self._unwrapped_idle_monitor().mute();
             }
             MainWindowMsg::Unmute => {
                 self._unwrapped_idle_monitor().unmute();
