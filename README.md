@@ -14,10 +14,6 @@ The application was written with GNOME and Linux in mind, but the code is mostly
 
 ## Install
 
-### Main app
-- **Packaged install**: Get it on Flathub [here](https://flathub.org/apps/io.github.pieterdd.StretchBreak).
+Get the app on Flathub [here](https://flathub.org/apps/io.github.pieterdd.StretchBreak). GNOME users may want to install the [companion extension](https://extensions.gnome.org/extension/8231/stretch-break-companion/) that displays break status and provides settings access from a context menu.
 
-- **Manual install**: Run `cargo build --release`. You may need to install additional system-level build dependencies (see [Dockerfile](Dockerfile) for reference).
-
-### GNOME Shell integration
-Get the extension [here](https://extensions.gnome.org/extension/8231/stretch-break-companion/).
+For a manual install, run `cargo build --release`. You may need to install additional system-level build dependencies (see [Dockerfile](Dockerfile) for reference).
