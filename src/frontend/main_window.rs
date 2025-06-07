@@ -328,34 +328,40 @@ impl Component for MainWindow {
                     sleep(Duration::from_millis(100));
                     MainWindowCmd::TriggerUpdate
                 });
+                #[cfg(target_os = "linux")]
+                if let Some(notification) = &self.prebreak_notification {
+                    if let ModeState::PreBreak { .. } = self.last_idle_info.last_mode_state {
+                    } else {
+                        if let Err(_) = notification.close() {
+                            println!("Warning: failed to close notification");
+                        }
+                        self.prebreak_notification = None;
+                    }
+                }
                 match self.last_idle_info.last_mode_state {
                     ModeState::Normal { .. } => {}
-                    ModeState::PreBreak { .. } => match self.previous_mode_state {
-                        ModeState::PreBreak { .. } => {}
-                        _ => {
-                            // Try to warn about prebreak if notify-send is installed
-                            #[cfg(target_os = "linux")]
-                            {
-                                let prebreak_notification = Notification::new(
-                                    "Time to stretch",
-                                    "Break will start when mouse and keyboard are released.",
-                                    None,
-                                );
-                                prebreak_notification.set_urgency(Urgency::Critical);
-                                prebreak_notification.show().ok();
-                                self.prebreak_notification = Some(prebreak_notification);
+                    ModeState::PreBreak { .. } => {
+                        match self.previous_mode_state {
+                            ModeState::PreBreak { .. } => {}
+                            _ => {
+                                // Try to warn about prebreak if notify-send is installed
+                                #[cfg(target_os = "linux")]
+                                {
+                                    let prebreak_notification = Notification::new(
+                                        "Time to stretch",
+                                        "Break will start when mouse and keyboard are released.",
+                                        None,
+                                    );
+                                    prebreak_notification.set_urgency(Urgency::Critical);
+                                    prebreak_notification.show().ok();
+                                    self.prebreak_notification = Some(prebreak_notification);
+                                }
                             }
                         }
-                    },
+                    }
                     ModeState::Break { .. } => match self.previous_mode_state {
                         ModeState::Break { .. } => {}
                         _ => {
-                            if let Some(notification) = &self.prebreak_notification {
-                                if let Err(_) = notification.close() {
-                                    println!("Warning: failed to close notification");
-                                }
-                                self.prebreak_notification = None;
-                            }
                             let break_window_init = BreakWindowInit {
                                 idle_monitor_arc: self.idle_monitor_arc.clone(),
                             };
