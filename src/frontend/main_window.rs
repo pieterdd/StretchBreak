@@ -69,7 +69,7 @@ impl Component for MainWindow {
     menu! {
         top_nav: {
             section! {
-                "About Stretch Break" => AboutAction,
+                "About" => AboutAction,
             }
         },
         snooze: {
