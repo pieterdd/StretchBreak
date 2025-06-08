@@ -352,7 +352,52 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
     }
 
     pub fn set_reading_mode(&mut self, reading_mode: bool) {
-        self.last_idle_info.reading_mode = reading_mode;
+        let check_time = self.clock.get_time();
+
+        fn map_debounced_idle_state(
+            debounced_idle_state: DebouncedIdleState,
+            check_time: DateTime<Utc>,
+        ) -> DebouncedIdleState {
+            match debounced_idle_state {
+                DebouncedIdleState::Active { active_since } => {
+                    DebouncedIdleState::Active { active_since }
+                }
+                DebouncedIdleState::ActiveGoingToIdle { active_since, .. } => {
+                    DebouncedIdleState::Active { active_since }
+                }
+                DebouncedIdleState::IdleGoingToActive { .. } | DebouncedIdleState::Idle { .. } => {
+                    DebouncedIdleState::Active {
+                        active_since: check_time,
+                    }
+                }
+            }
+        }
+
+        self.last_idle_info = IdleInfo {
+            idle_since_seconds: self.last_idle_info.idle_since_seconds,
+            last_checked: self.last_idle_info.last_checked,
+            last_mode_state: match self.last_idle_info.last_mode_state {
+                ModeState::Normal {
+                    progress_towards_break,
+                    progress_towards_reset,
+                    idle_state,
+                } => ModeState::Normal {
+                    progress_towards_break,
+                    progress_towards_reset,
+                    idle_state: map_debounced_idle_state(idle_state, check_time),
+                },
+                ModeState::PreBreak { started_at } => ModeState::PreBreak { started_at },
+                ModeState::Break {
+                    progress_towards_finish,
+                    idle_state,
+                } => ModeState::Break {
+                    progress_towards_finish,
+                    idle_state: map_debounced_idle_state(idle_state, check_time),
+                },
+            },
+            reading_mode: reading_mode,
+            presence_mode: self.last_idle_info.presence_mode,
+        };
     }
 
     pub fn get_last_idle_info(&self) -> IdleInfo {
@@ -1830,5 +1875,193 @@ mod tests {
             idle_monitor.postpone_break(Duration::seconds(3 * 60)),
             expected_idle_info
         );
+    }
+
+    #[test]
+    fn test_set_reading_mode_normal_active() {
+        let current_time = Utc::now();
+        let idle_checker = make_idle_checker(0);
+        let clock = make_clock(&current_time);
+
+        let mut idle_monitor = IdleMonitor {
+            idle_checker,
+            clock,
+            last_idle_info: IdleInfo {
+                idle_since_seconds: 0,
+                last_checked: current_time,
+                last_mode_state: ModeState::Normal {
+                    progress_towards_break: Duration::milliseconds(6_000),
+                    progress_towards_reset: Duration::milliseconds(0_000),
+                    idle_state: DebouncedIdleState::Active {
+                        active_since: current_time - Duration::milliseconds(2_000),
+                    },
+                },
+                presence_mode: PresenceMode::Active,
+                reading_mode: false,
+            },
+        };
+        let expected_idle_info = IdleInfo {
+            idle_since_seconds: 0,
+            last_checked: current_time,
+            last_mode_state: ModeState::Normal {
+                progress_towards_break: Duration::milliseconds(6_000),
+                progress_towards_reset: Duration::milliseconds(0_000),
+                idle_state: DebouncedIdleState::Active {
+                    active_since: current_time - Duration::milliseconds(2_000),
+                },
+            },
+            presence_mode: PresenceMode::Active,
+            reading_mode: true,
+        };
+        idle_monitor.set_reading_mode(true);
+        assert_eq!(idle_monitor.get_last_idle_info(), expected_idle_info);
+    }
+
+    #[test]
+    fn test_set_reading_mode_normal_idle() {
+        let current_time = Utc::now();
+        let idle_checker = make_idle_checker(0);
+        let clock = make_clock(&current_time);
+
+        let mut idle_monitor = IdleMonitor {
+            idle_checker,
+            clock,
+            last_idle_info: IdleInfo {
+                idle_since_seconds: 0,
+                last_checked: current_time,
+                last_mode_state: ModeState::Normal {
+                    progress_towards_break: Duration::milliseconds(6_000),
+                    progress_towards_reset: Duration::milliseconds(0_000),
+                    idle_state: DebouncedIdleState::Idle {
+                        idle_since: current_time - Duration::milliseconds(2_000),
+                    },
+                },
+                presence_mode: PresenceMode::Active,
+                reading_mode: false,
+            },
+        };
+        let expected_idle_info = IdleInfo {
+            idle_since_seconds: 0,
+            last_checked: current_time,
+            last_mode_state: ModeState::Normal {
+                progress_towards_break: Duration::milliseconds(6_000),
+                progress_towards_reset: Duration::milliseconds(0_000),
+                idle_state: DebouncedIdleState::Active {
+                    active_since: current_time,
+                },
+            },
+            presence_mode: PresenceMode::Active,
+            reading_mode: true,
+        };
+        idle_monitor.set_reading_mode(true);
+        assert_eq!(idle_monitor.get_last_idle_info(), expected_idle_info);
+    }
+
+    #[test]
+    fn test_set_reading_mode_prebreak() {
+        let current_time = Utc::now();
+        let idle_checker = make_idle_checker(0);
+        let clock = make_clock(&current_time);
+
+        let mut idle_monitor = IdleMonitor {
+            idle_checker,
+            clock,
+            last_idle_info: IdleInfo {
+                idle_since_seconds: 0,
+                last_checked: current_time,
+                last_mode_state: ModeState::PreBreak {
+                    started_at: current_time - Duration::seconds(3),
+                },
+                presence_mode: PresenceMode::Active,
+                reading_mode: false,
+            },
+        };
+        let expected_idle_info = IdleInfo {
+            idle_since_seconds: 0,
+            last_checked: current_time,
+            last_mode_state: ModeState::PreBreak {
+                started_at: current_time - Duration::seconds(3),
+            },
+            presence_mode: PresenceMode::Active,
+            reading_mode: true,
+        };
+        idle_monitor.set_reading_mode(true);
+        assert_eq!(idle_monitor.get_last_idle_info(), expected_idle_info);
+    }
+
+    #[test]
+    fn test_set_reading_mode_break_active() {
+        let current_time = Utc::now();
+        let idle_checker = make_idle_checker(0);
+        let clock = make_clock(&current_time);
+
+        let mut idle_monitor = IdleMonitor {
+            idle_checker,
+            clock,
+            last_idle_info: IdleInfo {
+                idle_since_seconds: 0,
+                last_checked: current_time,
+                last_mode_state: ModeState::Break {
+                    progress_towards_finish: Duration::milliseconds(6_000),
+                    idle_state: DebouncedIdleState::Active {
+                        active_since: current_time - Duration::milliseconds(2_000),
+                    },
+                },
+                presence_mode: PresenceMode::Active,
+                reading_mode: false,
+            },
+        };
+        let expected_idle_info = IdleInfo {
+            idle_since_seconds: 0,
+            last_checked: current_time,
+            last_mode_state: ModeState::Break {
+                progress_towards_finish: Duration::milliseconds(6_000),
+                idle_state: DebouncedIdleState::Active {
+                    active_since: current_time - Duration::milliseconds(2_000),
+                },
+            },
+            presence_mode: PresenceMode::Active,
+            reading_mode: true,
+        };
+        idle_monitor.set_reading_mode(true);
+        assert_eq!(idle_monitor.get_last_idle_info(), expected_idle_info);
+    }
+
+    #[test]
+    fn test_set_reading_mode_break_idle() {
+        let current_time = Utc::now();
+        let idle_checker = make_idle_checker(0);
+        let clock = make_clock(&current_time);
+
+        let mut idle_monitor = IdleMonitor {
+            idle_checker,
+            clock,
+            last_idle_info: IdleInfo {
+                idle_since_seconds: 0,
+                last_checked: current_time,
+                last_mode_state: ModeState::Break {
+                    progress_towards_finish: Duration::milliseconds(6_000),
+                    idle_state: DebouncedIdleState::Idle {
+                        idle_since: current_time - Duration::milliseconds(2_000),
+                    },
+                },
+                presence_mode: PresenceMode::Active,
+                reading_mode: false,
+            },
+        };
+        let expected_idle_info = IdleInfo {
+            idle_since_seconds: 0,
+            last_checked: current_time,
+            last_mode_state: ModeState::Break {
+                progress_towards_finish: Duration::milliseconds(6_000),
+                idle_state: DebouncedIdleState::Active {
+                    active_since: current_time,
+                },
+            },
+            presence_mode: PresenceMode::Active,
+            reading_mode: true,
+        };
+        idle_monitor.set_reading_mode(true);
+        assert_eq!(idle_monitor.get_last_idle_info(), expected_idle_info);
     }
 }
