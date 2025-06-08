@@ -27,9 +27,9 @@
     </screenshot>
     <screenshot>
       <image>
-        https://raw.githubusercontent.com/pieterdd/StretchBreak/acec0c51e2f7a1c9345a6e5d518906b355617c60/docs/gnomeShellWidget.png
+        https://raw.githubusercontent.com/pieterdd/StretchBreak/53fdbb0644e623363cf3075bb6d9e8d7b9d36eb6/docs/gnomeShellWidget.png
       </image>
-      <caption>GNOME Shell widget (installed separately)</caption>
+      <caption>GNOME Shell extension (installed separately)</caption>
     </screenshot>
   </screenshots>
 
@@ -55,17 +55,18 @@
   </description>
 
   <releases>
+    <release version="0.1.5" date="2025-06-08">
+      <description>
+        <ul>
+          <li>Expand snooze/mute options</li>
+          <li>Add possibility to take breaks from the extension menu</li>
+          <li>Fix issue with notification removal when snoozing</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.4" date="2025-06-05">
       <description>
         <p>Initial early Flatpak release.</p>
-      </description>
-    </release>
-    <release version="0.1.2" date="2025-05-28">
-      <description>
-        <ul>
-            <li>Implement reading mode</li>
-            <li>Bump user-idle2</li>
-        </ul>
       </description>
     </release>
   </releases>
