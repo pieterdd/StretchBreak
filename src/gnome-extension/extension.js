@@ -45,6 +45,7 @@ const DBUS_IFACE = `
         <method name="SetReadingMode">
             <arg type="b" direction="in" />
         </method>
+        <method name="TriggerBreak"></method>
     </interface>
 </node>`;
 const ProxyWrapper = Gio.DBusProxy.makeProxyWrapper(DBUS_IFACE);
@@ -140,6 +141,10 @@ class DBusClient {
             debugLog('DBus already unwatched');
         }
     }
+
+    triggerBreak() {
+        this._proxy.TriggerBreakSync();
+    }
 }
 
 const Indicator = GObject.registerClass(
@@ -169,15 +174,20 @@ const Indicator = GObject.registerClass(
             box.add_child(this._prebreakLabel);
             this.add_child(box);
 
-            const itemToggle = new PopupMenu.PopupMenuItem(_('Toggle window'));
-            itemToggle.connect('activate', () => {
+            const itemToggle = new PopupMenu.PopupMenuItem("Toggle window");
+            itemToggle.connect("activate", () => {
                 dbusClient.toggleWindow();
             });
-
             this.menu.addMenuItem(itemToggle);
 
+            const itemForceBreak = new PopupMenu.PopupMenuItem("Take break");
+            itemForceBreak.connect("activate", () => {
+                dbusClient.triggerBreak();
+            });
+            this.menu.addMenuItem(itemForceBreak);
+
             this._readingModeSwitch = new PopupMenu.PopupSwitchMenuItem("Reading mode");
-            this._readingModeSwitch.connect('toggled', (_, value) => {
+            this._readingModeSwitch.connect("toggled", (_, value) => {
                 dbusClient.setReadingMode(value);
             });
             this.menu.addMenuItem(this._readingModeSwitch);
@@ -188,30 +198,30 @@ const Indicator = GObject.registerClass(
 
             this._snoozeSubMenuItem = new PopupMenu.PopupSubMenuMenuItem("Snooze for...");
             this._snooze30mMenuItem = new PopupMenu.PopupMenuItem("30 minutes");
-            this._snooze30mMenuItem.connect('activate', () => {
+            this._snooze30mMenuItem.connect("activate", () => {
                 dbusClient.snoozeFor(30);
             });
             this._snoozeSubMenuItem.menu.addMenuItem(this._snooze30mMenuItem);
             this._snooze60mMenuItem = new PopupMenu.PopupMenuItem("1 hour");
-            this._snooze60mMenuItem.connect('activate', () => {
+            this._snooze60mMenuItem.connect("activate", () => {
                 dbusClient.snoozeFor(60);
             });
             this._snoozeSubMenuItem.menu.addMenuItem(this._snooze60mMenuItem);
             this._snooze6hMenuItem = new PopupMenu.PopupMenuItem("3 hours");
-            this._snooze6hMenuItem.connect('activate', () => {
+            this._snooze6hMenuItem.connect("activate", () => {
                 dbusClient.snoozeFor(60*3);
             });
             this._snoozeSubMenuItem.menu.addMenuItem(this._snooze6hMenuItem);
             this.menu.addMenuItem(this._snoozeSubMenuItem);
 
             this._muteMenuItem = new PopupMenu.PopupMenuItem("Mute");
-            this._muteMenuItem.connect('activate', () => {
+            this._muteMenuItem.connect("activate", () => {
                 dbusClient.mute();
             });
             this.menu.addMenuItem(this._muteMenuItem);
 
             this._unmuteMenuItem = new PopupMenu.PopupMenuItem("Unmute");
-            this._unmuteMenuItem.connect('activate', () => {
+            this._unmuteMenuItem.connect("activate", () => {
                 dbusClient.unmute();
             });
             this.menu.addMenuItem(this._unmuteMenuItem);

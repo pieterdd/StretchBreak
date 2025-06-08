@@ -515,22 +515,19 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
         return self.last_idle_info.clone();
     }
 
-    pub fn force_break(&mut self) -> IdleInfo {
-        let check_time = self.clock.get_time();
-        let idle_since_seconds = self.idle_checker.get_idle_time_in_seconds();
-
+    pub fn trigger_break(&mut self) -> IdleInfo {
         self.last_idle_info = match self.last_idle_info.last_mode_state {
             ModeState::Normal {
                 progress_towards_break: _,
                 progress_towards_reset: _,
                 idle_state: _,
             } => IdleInfo {
-                idle_since_seconds,
-                last_checked: check_time,
+                idle_since_seconds: self.last_idle_info.idle_since_seconds,
+                last_checked: self.last_idle_info.last_checked,
                 last_mode_state: ModeState::Break {
                     progress_towards_finish: Duration::seconds(0),
                     idle_state: DebouncedIdleState::Idle {
-                        idle_since: check_time,
+                        idle_since: self.last_idle_info.last_checked,
                     },
                 },
                 presence_mode: self.last_idle_info.presence_mode,
@@ -1690,12 +1687,12 @@ mod tests {
             clock,
             last_idle_info: IdleInfo {
                 idle_since_seconds: 0,
-                last_checked: current_time - Duration::milliseconds(1_000),
+                last_checked: current_time,
                 last_mode_state: ModeState::Normal {
                     progress_towards_break: Duration::milliseconds(8_000),
                     progress_towards_reset: Duration::seconds(0),
                     idle_state: DebouncedIdleState::Active {
-                        active_since: current_time - Duration::milliseconds(1_000),
+                        active_since: current_time,
                     },
                 },
                 presence_mode: PresenceMode::Active,
@@ -1715,7 +1712,7 @@ mod tests {
             presence_mode: PresenceMode::Active,
             reading_mode: false,
         };
-        assert_eq!(idle_monitor.force_break(), expected_idle_info);
+        assert_eq!(idle_monitor.trigger_break(), expected_idle_info);
     }
 
     #[test]

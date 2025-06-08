@@ -133,7 +133,7 @@ impl Component for MainWindow {
                                                 gtk::Button {
                                                     set_icon_name: "org.gnome.Settings-privacy-symbolic",
                                                     set_valign: gtk::Align::Center,
-                                                    set_tooltip: "Break now",
+                                                    set_tooltip: "Take break now",
                                                     connect_clicked => MainWindowMsg::ForceBreak,
                                                 },
                                             }
@@ -377,7 +377,7 @@ impl Component for MainWindow {
                 root.set_visible(visible);
             }
             MainWindowMsg::ForceBreak => {
-                self._unwrapped_idle_monitor().force_break();
+                self._unwrapped_idle_monitor().trigger_break();
             }
             MainWindowMsg::Snooze { minutes } => {
                 let unmute_timestamp = Utc::now()

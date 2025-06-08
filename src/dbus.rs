@@ -157,6 +157,11 @@ impl DBusServer {
         let mut monitor = self._unlock_monitor();
         monitor.set_reading_mode(value);
     }
+
+    fn trigger_break(&self) {
+        let mut monitor = self._unlock_monitor();
+        monitor.trigger_break();
+    }
 }
 
 #[cfg(test)]
