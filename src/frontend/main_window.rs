@@ -72,7 +72,7 @@ impl Component for MainWindow {
     menu! {
         top_nav: {
             section! {
-                "About..." => AboutAction,
+                "About" => AboutAction,
                 "Quit" => QuitAction,
             }
         },
