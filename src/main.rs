@@ -119,7 +119,6 @@ fn main() {
             channel(idle_monitor_arc.lock().unwrap().refresh_idle_info());
 
         let (show_main_window_sender, show_main_window_recv) = channel(!cli.hide);
-        let show_main_window_recv_ref = show_main_window_recv.clone();
 
         thread::spawn(move || monitor_idle_forever(idle_monitor_arc, idle_info_sender));
         let idle_info_receiver_ref = idle_info_receiver.clone();
@@ -127,7 +126,6 @@ fn main() {
             match run_server(
                 idle_info_receiver_ref,
                 show_main_window_sender,
-                show_main_window_recv_ref,
                 idle_monitor_arc3,
             ) {
                 Ok(()) => {}

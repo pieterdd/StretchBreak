@@ -34,6 +34,7 @@ const DBUS_IFACE = `
             <arg type="s" />
         </signal>
         <method name="ToggleWindow"></method>
+        <method name="RevealWindow"></method>
         <method name="Mute"></method>
         <method name="SnoozeForMinutes">
             <arg type="x" direction="in" />
@@ -110,6 +111,10 @@ class DBusClient {
         this._proxy.ToggleWindowSync();
     }
     
+    revealWindow() {
+        this._proxy.RevealWindowSync();
+    }
+    
     mute() {
         this._proxy.MuteSync();
     }
@@ -174,11 +179,11 @@ const Indicator = GObject.registerClass(
             box.add_child(this._prebreakLabel);
             this.add_child(box);
 
-            const itemToggle = new PopupMenu.PopupMenuItem("Toggle window");
-            itemToggle.connect("activate", () => {
-                dbusClient.toggleWindow();
+            const itemOpen = new PopupMenu.PopupMenuItem("Open");
+            itemOpen.connect("activate", () => {
+                dbusClient.revealWindow();
             });
-            this.menu.addMenuItem(itemToggle);
+            this.menu.addMenuItem(itemOpen);
 
             const itemForceBreak = new PopupMenu.PopupMenuItem("Take break");
             itemForceBreak.connect("activate", () => {

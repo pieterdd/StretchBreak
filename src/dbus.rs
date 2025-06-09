@@ -66,7 +66,6 @@ fn get_widget_info(idle_info: &IdleInfo) -> WidgetInfo {
 pub async fn run_server(
     mut idle_info_recv: Receiver<IdleInfo>,
     show_main_window_send: Sender<bool>,
-    show_main_window_recv: Receiver<bool>,
     idle_monitor_arc: Arc<Mutex<IdleMonitor<IdleChecker, Clock>>>,
 ) -> Result<(), Box<dyn Error>> {
     let conn = connection::Builder::session()?
@@ -75,7 +74,6 @@ pub async fn run_server(
             "/io/github/pieterdd/StretchBreak/Core",
             DBusServer {
                 show_main_window_send,
-                show_main_window_recv,
                 idle_monitor_arc,
             },
         )?
@@ -98,7 +96,6 @@ pub async fn run_server(
 
 struct DBusServer {
     show_main_window_send: Sender<bool>,
-    show_main_window_recv: Receiver<bool>,
     idle_monitor_arc: Arc<Mutex<IdleMonitor<IdleChecker, Clock>>>,
 }
 
@@ -120,10 +117,8 @@ impl DBusServer {
     ) -> zbus::Result<()>;
 
     fn toggle_window(&self) {
-        let current_value = *self.show_main_window_recv.borrow();
-        self.show_main_window_send
-            .send(!current_value)
-            .expect("Send failed");
+        // Deprecated - remove in 0.1.7
+        self.reveal_window();
     }
 
     fn reveal_window(&self) {

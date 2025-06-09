@@ -1,3 +1,4 @@
+use std::process;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::sleep;
 use std::time::Duration;
@@ -23,6 +24,7 @@ use super::break_window::{BreakWindow, BreakWindowInit};
 
 relm4::new_action_group!(TopNavActionGroup, "top_nav");
 relm4::new_stateless_action!(AboutAction, TopNavActionGroup, "about");
+relm4::new_stateless_action!(QuitAction, TopNavActionGroup, "quit");
 
 relm4::new_action_group!(SnoozeActionGroup, "snooze");
 relm4::new_stateless_action!(Snooze30mAction, SnoozeActionGroup, "snooze_30m");
@@ -43,6 +45,7 @@ pub enum MainWindowMsg {
     Mute,
     Unmute,
     SetReadingMode(bool),
+    Hide,
 }
 
 #[derive(Debug)]
@@ -69,7 +72,8 @@ impl Component for MainWindow {
     menu! {
         top_nav: {
             section! {
-                "About" => AboutAction,
+                "About..." => AboutAction,
+                "Quit" => QuitAction,
             }
         },
         snooze: {
@@ -86,6 +90,10 @@ impl Component for MainWindow {
             set_title: Some("Stretch Break"),
             set_default_width: 400,
             set_default_height: 200,
+            connect_close_request[sender] => move |_| {
+                sender.input(MainWindowMsg::Hide);
+                glib::Propagation::Stop
+            },
 
             adw::ToolbarView {
                 add_top_bar = &adw::HeaderBar {
@@ -286,6 +294,10 @@ impl Component for MainWindow {
             dialog.present(Some(&cloned_root));
         });
         top_nav_group.add_action(about);
+        let quit: RelmAction<QuitAction> = RelmAction::new_stateless(move |_| {
+            process::exit(0);
+        });
+        top_nav_group.add_action(quit);
         let top_nav_actions = top_nav_group.into_action_group();
         widgets
             .main_window
@@ -373,8 +385,10 @@ impl Component for MainWindow {
                     },
                 }
                 self.previous_mode_state = self.last_idle_info.last_mode_state;
-                let visible = *self.show_main_window.borrow();
-                root.set_visible(visible);
+                if self.show_main_window.has_changed().unwrap() {
+                    let visible = *self.show_main_window.borrow_and_update();
+                    root.set_visible(visible);
+                }
             }
             MainWindowMsg::ForceBreak => {
                 self._unwrapped_idle_monitor().trigger_break();
@@ -394,6 +408,19 @@ impl Component for MainWindow {
             MainWindowMsg::SetReadingMode(value) => {
                 self._unwrapped_idle_monitor().set_reading_mode(value);
                 self.last_idle_info = self.idle_monitor_arc.lock().unwrap().get_last_idle_info();
+            }
+            MainWindowMsg::Hide => {
+                root.set_visible(false);
+                #[cfg(target_os = "linux")]
+                {
+                    let notification = Notification::new(
+                        "Still here!",
+                        "Stretch Break continues running in the background.",
+                        None,
+                    );
+                    notification.set_timeout(3_000);
+                    notification.show().ok();
+                }
             }
         }
     }
