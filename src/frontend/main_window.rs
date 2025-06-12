@@ -115,7 +115,7 @@ impl Component for MainWindow {
 
                     #[name = "view_stack"]
                     adw::ViewStack {
-                        add_titled_with_icon[Some("status"), "Status", "org.gnome.SystemMonitor-symbolic"] = &gtk::Box {
+                        add_titled_with_icon[Some("status"), "Status", icon_names::STOPWATCH] = &gtk::Box {
                             set_orientation: gtk::Orientation::Vertical,
                             set_margin_all: 10,
                             set_spacing: 10,
