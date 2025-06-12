@@ -61,6 +61,7 @@
           <li>Expand snooze/mute options</li>
           <li>Add possibility to take breaks from the extension menu</li>
           <li>Fix issue with notification removal when snoozing</li>
+          <li>Fix issue when enabling reading while idle</li>
         </ul>
       </description>
     </release>
