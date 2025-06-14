@@ -7,6 +7,7 @@ mod backend;
 use backend::idle_monitoring::{
     Clock, DebouncedIdleState, IdleChecker, IdleInfo, IdleMonitor, ModeState,
 };
+use chrono::{TimeDelta, Utc};
 use clap::Parser;
 use dbus::run_server;
 use relm4::RelmApp;
@@ -18,6 +19,8 @@ use tracing::error;
 mod frontend;
 use frontend::main_window::{MainWindow, MainWindowInit};
 use zbus::{Connection, Error, Proxy};
+
+use crate::backend::file_io::PersistableState;
 mod dbus;
 
 const APP_ID: &str = "io.github.pieterdd.StretchBreak";
@@ -53,6 +56,7 @@ fn monitor_idle_forever(
     idle_info_sender: Sender<IdleInfo>,
 ) {
     let mut previous_idle_info: Option<IdleInfo> = None;
+    let mut last_state_write = Utc::now();
 
     loop {
         {
@@ -60,6 +64,21 @@ fn monitor_idle_forever(
                 .lock()
                 .expect("Idle monitor unlock failed")
                 .refresh_idle_info();
+
+            if last_state_write
+                .checked_add_signed(TimeDelta::seconds(15))
+                .unwrap()
+                < Utc::now()
+            {
+                let persistable_state = idle_monitor_ref
+                    .lock()
+                    .expect("Idle monitor unlock failed")
+                    .export_persistable_state();
+                if let Err(_) = persistable_state.save_to_disk() {
+                    println!("Tried to write timer state to disk, but failed");
+                }
+                last_state_write = Utc::now();
+            }
             idle_info_sender
                 .send(idle_info)
                 .expect("Could not send idle info");
@@ -110,7 +129,11 @@ fn main() {
     let instance = SingleInstance::new(APP_ID).expect("Initializing single instance object failed");
 
     if instance.is_single() {
-        let idle_monitor = IdleMonitor::new(IdleChecker, Clock, None);
+        let persistable_state = PersistableState::load_from_disk().ok();
+        if let None = persistable_state {
+            println!("Could not read settings and timer state from disk. Loading defaults.");
+        }
+        let idle_monitor = IdleMonitor::new(IdleChecker, Clock, persistable_state);
         let idle_monitor_arc = Arc::new(Mutex::new(idle_monitor));
         let idle_monitor_arc2 = idle_monitor_arc.clone();
         let idle_monitor_arc3 = idle_monitor_arc.clone();

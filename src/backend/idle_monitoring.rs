@@ -6,6 +6,8 @@ use user_idle2::UserIdle;
 #[cfg(test)]
 use mockall::automock;
 
+use crate::backend::file_io::PersistableState;
+
 pub const TIME_TO_BREAK_SECS: i64 = 20 * 60;
 pub const BREAK_LENGTH_SECS: i64 = 90;
 pub const REQUIRED_PREBREAK_IDLE_STREAK_SECONDS: u64 = 5;
@@ -127,14 +129,6 @@ impl IdleInfo {
     }
 }
 
-pub struct RestoredState {
-    progress_towards_break: Duration,
-    progress_towards_reset: Duration,
-    last_checked: DateTime<Utc>,
-    presence_mode: PresenceMode,
-    reading_mode: bool,
-}
-
 pub struct IdleMonitor<T: AbstractIdleChecker, U: AbstractClock> {
     idle_checker: T,
     clock: U,
@@ -142,7 +136,7 @@ pub struct IdleMonitor<T: AbstractIdleChecker, U: AbstractClock> {
 }
 
 impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
-    pub fn new(idle_checker: T, clock: U, restored_state: Option<RestoredState>) -> Self {
+    pub fn new(idle_checker: T, clock: U, restored_state: Option<PersistableState>) -> Self {
         let time = clock.get_time();
         let use_restored_timers = match restored_state {
             Some(ref state) => {
@@ -398,16 +392,25 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
 
     pub fn snooze(&mut self, timestamp: DateTime<Utc>) -> IdleInfo {
         self.last_idle_info.presence_mode = PresenceMode::SnoozedUntil(timestamp);
+        self.persist_settings_to_disk();
         self.last_idle_info.clone()
+    }
+
+    fn persist_settings_to_disk(&self) {
+        if let Err(_) = self.export_persistable_state().save_to_disk() {
+            println!("Could not save settings and timer state to disk");
+        }
     }
 
     pub fn mute(&mut self) -> IdleInfo {
         self.last_idle_info.presence_mode = PresenceMode::Muted;
+        self.persist_settings_to_disk();
         self.last_idle_info.clone()
     }
 
     pub fn unmute(&mut self) -> IdleInfo {
         self.last_idle_info.presence_mode = PresenceMode::Active;
+        self.persist_settings_to_disk();
         self.last_idle_info.clone()
     }
 
@@ -458,6 +461,8 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
             reading_mode: reading_mode,
             presence_mode: self.last_idle_info.presence_mode,
         };
+
+        self.persist_settings_to_disk();
     }
 
     pub fn get_last_idle_info(&self) -> IdleInfo {
@@ -693,6 +698,28 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
         };
         return self.last_idle_info.clone();
     }
+
+    pub fn export_persistable_state(&self) -> PersistableState {
+        PersistableState {
+            progress_towards_break: match self.last_idle_info.last_mode_state {
+                ModeState::Normal {
+                    progress_towards_break,
+                    ..
+                } => progress_towards_break,
+                _ => Duration::seconds(0),
+            },
+            progress_towards_reset: match self.last_idle_info.last_mode_state {
+                ModeState::Normal {
+                    progress_towards_reset,
+                    ..
+                } => progress_towards_reset,
+                _ => Duration::seconds(0),
+            },
+            last_checked: self.last_idle_info.last_checked,
+            presence_mode: self.last_idle_info.presence_mode,
+            reading_mode: self.last_idle_info.reading_mode,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -747,7 +774,7 @@ mod tests {
         let mut idle_monitor = IdleMonitor::new(
             idle_checker,
             clock,
-            Some(RestoredState {
+            Some(PersistableState {
                 progress_towards_break: Duration::seconds(TIME_TO_BREAK_SECS - 1),
                 progress_towards_reset: Duration::seconds(5),
                 last_checked: current_time - Duration::seconds(BREAK_LENGTH_SECS - 5 + 1),
@@ -780,7 +807,7 @@ mod tests {
         let mut idle_monitor = IdleMonitor::new(
             idle_checker,
             clock,
-            Some(RestoredState {
+            Some(PersistableState {
                 progress_towards_break: Duration::seconds(TIME_TO_BREAK_SECS - 1),
                 progress_towards_reset: Duration::seconds(5),
                 last_checked: current_time - Duration::seconds(BREAK_LENGTH_SECS - 5 - 1),
@@ -2189,5 +2216,40 @@ mod tests {
         };
         idle_monitor.set_reading_mode(true);
         assert_eq!(idle_monitor.get_last_idle_info(), expected_idle_info);
+    }
+
+    #[test]
+    fn test_export_persistable_state() {
+        let current_time = Utc::now();
+        let idle_checker = make_idle_checker(1);
+        let clock = make_clock(&current_time);
+
+        let idle_monitor = IdleMonitor {
+            idle_checker,
+            clock,
+            last_idle_info: IdleInfo {
+                idle_since_seconds: 0,
+                last_checked: current_time,
+                last_mode_state: ModeState::Normal {
+                    progress_towards_break: Duration::milliseconds(6_000),
+                    progress_towards_reset: Duration::milliseconds(2_000),
+                    idle_state: DebouncedIdleState::Idle {
+                        idle_since: current_time - Duration::milliseconds(5_000),
+                    },
+                },
+                presence_mode: PresenceMode::Active,
+                reading_mode: false,
+            },
+        };
+        assert_eq!(
+            idle_monitor.export_persistable_state(),
+            PersistableState {
+                last_checked: current_time,
+                progress_towards_break: Duration::milliseconds(6_000),
+                progress_towards_reset: Duration::milliseconds(2_000),
+                presence_mode: PresenceMode::Active,
+                reading_mode: false,
+            }
+        );
     }
 }
