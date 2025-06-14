@@ -5,8 +5,8 @@ use std::time::Duration;
 
 use crate::APP_ID;
 use crate::backend::idle_monitoring::{
-    BREAK_LENGTH_SECS, Clock, DebouncedIdleState, IdleChecker, IdleInfo, IdleMonitor, ModeState,
-    PresenceMode, REQUIRED_PREBREAK_IDLE_STREAK_SECONDS, TIME_TO_BREAK_SECS,
+    Clock, DebouncedIdleState, IdleChecker, IdleInfo, IdleMonitor, ModeState, PresenceMode,
+    REQUIRED_PREBREAK_IDLE_STREAK_SECONDS,
 };
 use crate::frontend::formatting::format_timer_timecode;
 use adw::prelude::{ActionRowExt, AdwDialogExt, PreferencesRowExt};
@@ -134,7 +134,7 @@ impl Component for MainWindow {
                                         adw::ActionRow {
                                             set_title: &format!("Time to break"),
                                             #[watch]
-                                            set_subtitle: &format_timer_timecode(progress_towards_break, TIME_TO_BREAK_SECS),
+                                            set_subtitle: &format_timer_timecode(progress_towards_break, model.last_idle_info.time_to_break_secs),
                                             add_suffix = &gtk::Box {
                                                 set_spacing: 5,
 
@@ -150,7 +150,7 @@ impl Component for MainWindow {
                                         adw::ActionRow {
                                             set_title: &format!("Time to reset"),
                                             #[watch]
-                                            set_subtitle: &format_timer_timecode(progress_towards_reset, BREAK_LENGTH_SECS),
+                                            set_subtitle: &format_timer_timecode(progress_towards_reset, model.last_idle_info.break_length_secs),
                                         },
 
                                         adw::ActionRow {
@@ -170,7 +170,7 @@ impl Component for MainWindow {
                                         adw::ActionRow {
                                             set_title: &format!("Break remainder"),
                                             #[watch]
-                                            set_subtitle: &format_timer_timecode(progress_towards_finish, BREAK_LENGTH_SECS),
+                                            set_subtitle: &format_timer_timecode(progress_towards_finish, model.last_idle_info.break_length_secs),
                                         },
 
                                         adw::ActionRow {

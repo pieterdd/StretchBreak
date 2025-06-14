@@ -8,10 +8,24 @@ use chrono::{DateTime, Duration, Utc};
 use dirs::config_dir;
 use serde::{Deserialize, Serialize};
 
-use crate::backend::idle_monitoring::PresenceMode;
+use crate::backend::idle_monitoring::{
+    DEFAULT_BREAK_LENGTH_SECS, DEFAULT_TIME_TO_BREAK_SECS, PresenceMode,
+};
+
+fn time_to_break_secs() -> i64 {
+    return DEFAULT_TIME_TO_BREAK_SECS;
+}
+
+fn break_length_secs() -> i64 {
+    return DEFAULT_BREAK_LENGTH_SECS;
+}
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PersistableState {
+    #[serde(default = "time_to_break_secs")]
+    pub time_to_break_secs: i64,
+    #[serde(default = "break_length_secs")]
+    pub break_length_secs: i64,
     pub progress_towards_break: Duration,
     pub progress_towards_reset: Duration,
     pub last_checked: DateTime<Utc>,

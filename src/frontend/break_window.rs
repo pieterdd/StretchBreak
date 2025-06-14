@@ -3,9 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::Duration;
 
-use crate::backend::idle_monitoring::{
-    BREAK_LENGTH_SECS, Clock, IdleChecker, IdleInfo, IdleMonitor, ModeState,
-};
+use crate::backend::idle_monitoring::{Clock, IdleChecker, IdleInfo, IdleMonitor, ModeState};
 use chrono::TimeDelta;
 use gtk::prelude::{BoxExt, ButtonExt, GtkWindowExt, OrientableExt, WidgetExt};
 use relm4::{Component, ComponentParts};
@@ -75,7 +73,7 @@ impl Component for BreakWindow {
                             #[watch]
                             set_markup: &format!("<big>Breaking for {} seconds</big>", match model.last_idle_info.last_mode_state {
                                 ModeState::Break { progress_towards_finish, .. } => {
-                                    BREAK_LENGTH_SECS - progress_towards_finish.num_seconds()
+                                    model.last_idle_info.break_length_secs - progress_towards_finish.num_seconds()
                                 },
                                 _ => 0
                             }),
@@ -137,7 +135,9 @@ impl Component for BreakWindow {
                         progress_towards_finish,
                         ..
                     } => {
-                        if progress_towards_finish.num_seconds() == BREAK_LENGTH_SECS {
+                        if progress_towards_finish.num_seconds()
+                            == self.last_idle_info.break_length_secs
+                        {
                             root.close();
                         }
                     }

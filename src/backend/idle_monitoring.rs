@@ -8,8 +8,8 @@ use mockall::automock;
 
 use crate::backend::file_io::PersistableState;
 
-pub const TIME_TO_BREAK_SECS: i64 = 20 * 60;
-pub const BREAK_LENGTH_SECS: i64 = 90;
+pub const DEFAULT_TIME_TO_BREAK_SECS: i64 = 20 * 60;
+pub const DEFAULT_BREAK_LENGTH_SECS: i64 = 90;
 pub const REQUIRED_PREBREAK_IDLE_STREAK_SECONDS: u64 = 5;
 const FRAME_DROP_CUTOFF_POINT_SECS: i64 = 30;
 
@@ -117,6 +117,8 @@ pub struct IdleInfo {
     pub last_mode_state: ModeState,
     pub reading_mode: bool,
     pub presence_mode: PresenceMode,
+    pub time_to_break_secs: i64,
+    pub break_length_secs: i64,
 }
 
 impl IdleInfo {
@@ -144,7 +146,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                 let sum_of_check_delta_and_reset_progress = time_since_last_check
                     .checked_add(&state.progress_towards_reset)
                     .unwrap();
-                sum_of_check_delta_and_reset_progress < Duration::seconds(BREAK_LENGTH_SECS)
+                sum_of_check_delta_and_reset_progress < Duration::seconds(DEFAULT_BREAK_LENGTH_SECS)
             }
             None => false,
         };
@@ -187,8 +189,10 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                                     .progress_towards_reset
                                     .checked_add(&time_since_last_checked)
                                     .unwrap();
-                                if unconstrained_duration > Duration::seconds(BREAK_LENGTH_SECS) {
-                                    Duration::seconds(BREAK_LENGTH_SECS)
+                                if unconstrained_duration
+                                    > Duration::seconds(DEFAULT_BREAK_LENGTH_SECS)
+                                {
+                                    Duration::seconds(DEFAULT_BREAK_LENGTH_SECS)
                                 } else {
                                     unconstrained_duration
                                 }
@@ -202,6 +206,14 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                 reading_mode: match restored_state {
                     Some(ref state) => state.reading_mode,
                     None => false,
+                },
+                time_to_break_secs: match restored_state {
+                    Some(ref state) => state.time_to_break_secs,
+                    None => DEFAULT_TIME_TO_BREAK_SECS,
+                },
+                break_length_secs: match restored_state {
+                    Some(ref state) => state.break_length_secs,
+                    None => DEFAULT_BREAK_LENGTH_SECS,
                 },
             },
         }
@@ -288,6 +300,8 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
         new_idle_state: DebouncedIdleState,
         time_since_last_check: Duration,
         reading_mode: bool,
+        time_to_break_secs: i64,
+        break_length_secs: i64,
     ) -> IdleInfo {
         IdleInfo {
             presence_mode,
@@ -310,7 +324,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                         idle_since: _,
                         transitioning_since: _,
                     } if progress_towards_reset + time_since_last_check
-                        >= Duration::seconds(BREAK_LENGTH_SECS) =>
+                        >= Duration::seconds(self.last_idle_info.break_length_secs) =>
                     {
                         match new_idle_state {
                             DebouncedIdleState::Idle { idle_since: _ }
@@ -321,7 +335,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                             _ => progress_towards_break,
                         }
                     }
-                    _ => Duration::seconds(TIME_TO_BREAK_SECS)
+                    _ => Duration::seconds(self.last_idle_info.time_to_break_secs)
                         .min(progress_towards_break + time_since_last_check),
                 },
                 progress_towards_reset: match new_idle_state {
@@ -333,11 +347,13 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                         active_since: _,
                         transitioning_since: _,
                     } => Duration::seconds(0),
-                    _ => Duration::seconds(BREAK_LENGTH_SECS)
+                    _ => Duration::seconds(self.last_idle_info.break_length_secs)
                         .min(progress_towards_reset + time_since_last_check),
                 },
             },
             reading_mode,
+            break_length_secs,
+            time_to_break_secs,
         }
     }
 
@@ -348,6 +364,8 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
         waiting_since: DateTime<Utc>,
         presence_mode: PresenceMode,
         reading_mode: bool,
+        break_length_secs: i64,
+        time_to_break_secs: i64,
     ) -> IdleInfo {
         IdleInfo {
             idle_since_seconds,
@@ -357,6 +375,8 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
             },
             presence_mode,
             reading_mode,
+            break_length_secs,
+            time_to_break_secs,
         }
     }
 
@@ -369,6 +389,8 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
         time_since_last_check: Duration,
         presence_mode: PresenceMode,
         reading_mode: bool,
+        time_to_break_secs: i64,
+        break_length_secs: i64,
     ) -> IdleInfo {
         IdleInfo {
             idle_since_seconds,
@@ -379,7 +401,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                     | DebouncedIdleState::IdleGoingToActive {
                         idle_since: _,
                         transitioning_since: _,
-                    } => Duration::seconds(BREAK_LENGTH_SECS)
+                    } => Duration::seconds(break_length_secs)
                         .min(progress_towards_finish + time_since_last_check),
                     _ => progress_towards_finish,
                 },
@@ -387,6 +409,8 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
             },
             presence_mode,
             reading_mode,
+            time_to_break_secs,
+            break_length_secs,
         }
     }
 
@@ -460,6 +484,8 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
             },
             reading_mode: reading_mode,
             presence_mode: self.last_idle_info.presence_mode,
+            time_to_break_secs: self.last_idle_info.time_to_break_secs,
+            break_length_secs: self.last_idle_info.break_length_secs,
         };
 
         self.persist_settings_to_disk();
@@ -491,7 +517,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                 progress_towards_reset: _,
                 idle_state: _,
             } if progress_towards_break + time_since_last_check
-                >= Duration::seconds(TIME_TO_BREAK_SECS)
+                >= Duration::seconds(self.last_idle_info.time_to_break_secs)
                 && time_since_last_check < Duration::seconds(FRAME_DROP_CUTOFF_POINT_SECS)
                 && !self.last_idle_info.is_muted() =>
             {
@@ -501,6 +527,8 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                     self.clock.get_time(),
                     new_presence_mode,
                     self.last_idle_info.reading_mode,
+                    self.last_idle_info.break_length_secs,
+                    self.last_idle_info.time_to_break_secs,
                 )
             }
             ModeState::Normal {
@@ -510,7 +538,8 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
             } => self._make_idle_info_in_normal_state(
                 new_presence_mode,
                 idle_since_seconds,
-                if time_since_last_check > Duration::seconds(TIME_TO_BREAK_SECS) {
+                if time_since_last_check > Duration::seconds(self.last_idle_info.time_to_break_secs)
+                {
                     Duration::seconds(0)
                 } else {
                     progress_towards_break
@@ -527,12 +556,14 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                 ),
                 time_since_last_check,
                 self.last_idle_info.reading_mode,
+                self.last_idle_info.time_to_break_secs,
+                self.last_idle_info.break_length_secs,
             ),
             ModeState::PreBreak { .. } if self.last_idle_info.is_muted() => self
                 ._make_idle_info_in_normal_state(
                     new_presence_mode,
                     idle_since_seconds,
-                    Duration::seconds(TIME_TO_BREAK_SECS),
+                    Duration::seconds(self.last_idle_info.time_to_break_secs),
                     Duration::seconds(0),
                     DebouncedIdleState::Active {
                         active_since: check_time,
@@ -549,6 +580,8 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                     ),
                     time_since_last_check,
                     self.last_idle_info.reading_mode,
+                    self.last_idle_info.time_to_break_secs,
+                    self.last_idle_info.break_length_secs,
                 ),
             ModeState::PreBreak { .. }
                 if idle_since_seconds >= REQUIRED_PREBREAK_IDLE_STREAK_SECONDS =>
@@ -567,6 +600,8 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                     },
                     presence_mode: new_presence_mode,
                     reading_mode: self.last_idle_info.reading_mode,
+                    break_length_secs: self.last_idle_info.break_length_secs,
+                    time_to_break_secs: self.last_idle_info.time_to_break_secs,
                 }
             }
             ModeState::PreBreak {
@@ -577,19 +612,23 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                 waiting_since,
                 new_presence_mode,
                 self.last_idle_info.reading_mode,
+                self.last_idle_info.break_length_secs,
+                self.last_idle_info.time_to_break_secs,
             ),
             ModeState::Break {
                 progress_towards_finish,
                 idle_state,
             } if progress_towards_finish + time_since_last_check
-                >= Duration::seconds(BREAK_LENGTH_SECS) =>
+                >= Duration::seconds(self.last_idle_info.break_length_secs) =>
             {
                 IdleInfo {
                     idle_since_seconds,
                     last_checked: check_time,
                     last_mode_state: ModeState::Normal {
                         progress_towards_break: Duration::seconds(0),
-                        progress_towards_reset: Duration::seconds(BREAK_LENGTH_SECS),
+                        progress_towards_reset: Duration::seconds(
+                            self.last_idle_info.break_length_secs,
+                        ),
                         idle_state: self._make_debounced_idle_state(
                             idle_since_seconds,
                             idle_state,
@@ -600,6 +639,8 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                     },
                     presence_mode: new_presence_mode,
                     reading_mode: self.last_idle_info.reading_mode,
+                    time_to_break_secs: self.last_idle_info.time_to_break_secs,
+                    break_length_secs: self.last_idle_info.break_length_secs,
                 }
             }
             ModeState::Break {
@@ -619,6 +660,8 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                 time_since_last_check,
                 new_presence_mode,
                 self.last_idle_info.reading_mode,
+                self.last_idle_info.time_to_break_secs,
+                self.last_idle_info.break_length_secs,
             ),
         };
 
@@ -642,6 +685,8 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                 },
                 presence_mode: self.last_idle_info.presence_mode,
                 reading_mode: self.last_idle_info.reading_mode,
+                time_to_break_secs: self.last_idle_info.time_to_break_secs,
+                break_length_secs: self.last_idle_info.break_length_secs,
             },
             _ => self.last_idle_info,
         };
@@ -667,6 +712,8 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                 },
                 presence_mode: self.last_idle_info.presence_mode,
                 reading_mode: self.last_idle_info.reading_mode,
+                time_to_break_secs: self.last_idle_info.time_to_break_secs,
+                break_length_secs: self.last_idle_info.break_length_secs,
             },
             _ => self.last_idle_info,
         };
@@ -686,13 +733,16 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                 idle_since_seconds,
                 last_checked: check_time,
                 last_mode_state: ModeState::Normal {
-                    progress_towards_break: Duration::seconds(TIME_TO_BREAK_SECS)
-                        - postpone_duration,
+                    progress_towards_break: Duration::seconds(
+                        self.last_idle_info.time_to_break_secs,
+                    ) - postpone_duration,
                     progress_towards_reset: Duration::seconds(0),
                     idle_state,
                 },
                 presence_mode: self.last_idle_info.presence_mode,
                 reading_mode: self.last_idle_info.reading_mode,
+                time_to_break_secs: self.last_idle_info.time_to_break_secs,
+                break_length_secs: self.last_idle_info.break_length_secs,
             },
             _ => self.last_idle_info,
         };
@@ -718,6 +768,8 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
             last_checked: self.last_idle_info.last_checked,
             presence_mode: self.last_idle_info.presence_mode,
             reading_mode: self.last_idle_info.reading_mode,
+            time_to_break_secs: self.last_idle_info.time_to_break_secs,
+            break_length_secs: self.last_idle_info.break_length_secs,
         }
     }
 }
@@ -761,6 +813,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -775,11 +829,13 @@ mod tests {
             idle_checker,
             clock,
             Some(PersistableState {
-                progress_towards_break: Duration::seconds(TIME_TO_BREAK_SECS - 1),
+                progress_towards_break: Duration::seconds(DEFAULT_TIME_TO_BREAK_SECS - 1),
                 progress_towards_reset: Duration::seconds(5),
-                last_checked: current_time - Duration::seconds(BREAK_LENGTH_SECS - 5 + 1),
+                last_checked: current_time - Duration::seconds(DEFAULT_BREAK_LENGTH_SECS - 5 + 1),
                 presence_mode: PresenceMode::Muted,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             }),
         );
         let expected_idle_info = IdleInfo {
@@ -794,6 +850,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Muted,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -808,25 +866,29 @@ mod tests {
             idle_checker,
             clock,
             Some(PersistableState {
-                progress_towards_break: Duration::seconds(TIME_TO_BREAK_SECS - 1),
+                progress_towards_break: Duration::seconds(DEFAULT_TIME_TO_BREAK_SECS - 1),
                 progress_towards_reset: Duration::seconds(5),
-                last_checked: current_time - Duration::seconds(BREAK_LENGTH_SECS - 5 - 1),
+                last_checked: current_time - Duration::seconds(DEFAULT_BREAK_LENGTH_SECS - 5 - 1),
                 presence_mode: PresenceMode::SnoozedUntil(current_time + Duration::minutes(30)),
                 reading_mode: true,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             }),
         );
         let expected_idle_info = IdleInfo {
             idle_since_seconds: 1,
             last_checked: current_time,
             last_mode_state: ModeState::Normal {
-                progress_towards_break: Duration::seconds(TIME_TO_BREAK_SECS - 1),
-                progress_towards_reset: Duration::seconds(BREAK_LENGTH_SECS - 1),
+                progress_towards_break: Duration::seconds(DEFAULT_TIME_TO_BREAK_SECS - 1),
+                progress_towards_reset: Duration::seconds(DEFAULT_BREAK_LENGTH_SECS - 1),
                 idle_state: DebouncedIdleState::Idle {
-                    idle_since: current_time - Duration::seconds(BREAK_LENGTH_SECS - 5 - 1),
+                    idle_since: current_time - Duration::seconds(DEFAULT_BREAK_LENGTH_SECS - 5 - 1),
                 },
             },
             presence_mode: PresenceMode::SnoozedUntil(current_time + Duration::minutes(30)),
             reading_mode: true,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -852,6 +914,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -866,6 +930,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -891,6 +957,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -905,6 +973,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -921,7 +991,7 @@ mod tests {
             clock,
             last_idle_info: IdleInfo {
                 idle_since_seconds: 0,
-                last_checked: current_time - Duration::seconds(TIME_TO_BREAK_SECS + 1),
+                last_checked: current_time - Duration::seconds(DEFAULT_TIME_TO_BREAK_SECS + 1),
                 last_mode_state: ModeState::Normal {
                     progress_towards_break: Duration::seconds(14),
                     progress_towards_reset: Duration::seconds(0),
@@ -931,6 +1001,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -945,6 +1017,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -970,6 +1044,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -984,6 +1060,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1009,6 +1087,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1024,6 +1104,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1050,6 +1132,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1065,6 +1149,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1091,6 +1177,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1105,6 +1193,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1131,6 +1221,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1145,6 +1237,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1170,6 +1264,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1185,6 +1281,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1210,6 +1308,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: true,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1224,6 +1324,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: true,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1250,6 +1352,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1265,6 +1369,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1291,6 +1397,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1305,6 +1413,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1331,6 +1441,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1345,6 +1457,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1364,7 +1478,7 @@ mod tests {
                 last_mode_state: ModeState::Normal {
                     progress_towards_break: Duration::milliseconds(6_000),
                     progress_towards_reset: Duration::milliseconds(
-                        BREAK_LENGTH_SECS * 1_000 - 0_050,
+                        DEFAULT_BREAK_LENGTH_SECS * 1_000 - 0_050,
                     ),
                     idle_state: DebouncedIdleState::Idle {
                         idle_since: current_time - Duration::milliseconds(5_000),
@@ -1372,6 +1486,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1379,13 +1495,15 @@ mod tests {
             last_checked: current_time,
             last_mode_state: ModeState::Normal {
                 progress_towards_break: Duration::seconds(0),
-                progress_towards_reset: Duration::seconds(BREAK_LENGTH_SECS),
+                progress_towards_reset: Duration::seconds(DEFAULT_BREAK_LENGTH_SECS),
                 idle_state: DebouncedIdleState::Idle {
                     idle_since: current_time - Duration::milliseconds(5_000),
                 },
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1411,6 +1529,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let resume_at_stamp = current_time + Duration::seconds(5 * 60);
@@ -1426,6 +1546,8 @@ mod tests {
             },
             presence_mode: PresenceMode::SnoozedUntil(resume_at_stamp),
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.snooze(resume_at_stamp), expected_idle_info);
     }
@@ -1451,6 +1573,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::SnoozedUntil(current_time + Duration::seconds(1)),
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1465,6 +1589,8 @@ mod tests {
             },
             presence_mode: PresenceMode::SnoozedUntil(current_time + Duration::seconds(1)),
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1486,13 +1612,15 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
             idle_since_seconds: 6,
             last_checked: current_time,
             last_mode_state: ModeState::Normal {
-                progress_towards_break: Duration::seconds(TIME_TO_BREAK_SECS),
+                progress_towards_break: Duration::seconds(DEFAULT_TIME_TO_BREAK_SECS),
                 progress_towards_reset: Duration::milliseconds(0),
                 idle_state: DebouncedIdleState::ActiveGoingToIdle {
                     active_since: current_time,
@@ -1501,6 +1629,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Muted,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         idle_monitor.mute();
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
@@ -1527,6 +1657,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::SnoozedUntil(current_time + Duration::seconds(1)),
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1541,6 +1673,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.unmute(), expected_idle_info);
     }
@@ -1566,6 +1700,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1580,6 +1716,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.unmute(), expected_idle_info);
     }
@@ -1605,6 +1743,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::SnoozedUntil(current_time - Duration::seconds(1)),
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1619,6 +1759,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1637,7 +1779,7 @@ mod tests {
                 last_checked: current_time - Duration::milliseconds(1_009),
                 last_mode_state: ModeState::Normal {
                     progress_towards_break: Duration::milliseconds(
-                        TIME_TO_BREAK_SECS * 1_000 - 0_089,
+                        DEFAULT_TIME_TO_BREAK_SECS * 1_000 - 0_089,
                     ),
                     progress_towards_reset: Duration::seconds(0),
                     idle_state: DebouncedIdleState::Active {
@@ -1646,6 +1788,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1656,6 +1800,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1674,7 +1820,7 @@ mod tests {
                 last_checked: current_time - Duration::milliseconds(1_009),
                 last_mode_state: ModeState::Normal {
                     progress_towards_break: Duration::milliseconds(
-                        TIME_TO_BREAK_SECS * 1_000 - 0_089,
+                        DEFAULT_TIME_TO_BREAK_SECS * 1_000 - 0_089,
                     ),
                     progress_towards_reset: Duration::seconds(0),
                     idle_state: DebouncedIdleState::Active {
@@ -1683,13 +1829,15 @@ mod tests {
                 },
                 presence_mode: PresenceMode::SnoozedUntil(current_time + Duration::seconds(1)),
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
             idle_since_seconds: 0,
             last_checked: current_time,
             last_mode_state: ModeState::Normal {
-                progress_towards_break: Duration::seconds(TIME_TO_BREAK_SECS),
+                progress_towards_break: Duration::seconds(DEFAULT_TIME_TO_BREAK_SECS),
                 progress_towards_reset: Duration::seconds(0),
                 idle_state: DebouncedIdleState::Active {
                     active_since: current_time - Duration::milliseconds(10_000),
@@ -1697,6 +1845,8 @@ mod tests {
             },
             presence_mode: PresenceMode::SnoozedUntil(current_time + Duration::seconds(1)),
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1718,6 +1868,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1728,6 +1880,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1749,6 +1903,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1759,6 +1915,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1780,6 +1938,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1793,6 +1953,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1817,6 +1979,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1830,6 +1994,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1848,7 +2014,7 @@ mod tests {
                 last_checked: current_time - Duration::milliseconds(1_025),
                 last_mode_state: ModeState::Break {
                     progress_towards_finish: Duration::milliseconds(
-                        BREAK_LENGTH_SECS * 1_000 - 0_052,
+                        DEFAULT_BREAK_LENGTH_SECS * 1_000 - 0_052,
                     ),
                     idle_state: DebouncedIdleState::Idle {
                         idle_since: current_time - Duration::milliseconds(28_000),
@@ -1856,6 +2022,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1863,13 +2031,15 @@ mod tests {
             last_checked: current_time,
             last_mode_state: ModeState::Normal {
                 progress_towards_break: Duration::seconds(0),
-                progress_towards_reset: Duration::seconds(BREAK_LENGTH_SECS),
+                progress_towards_reset: Duration::seconds(DEFAULT_BREAK_LENGTH_SECS),
                 idle_state: DebouncedIdleState::Idle {
                     idle_since: current_time - Duration::milliseconds(28_000),
                 },
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
@@ -1895,6 +2065,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1909,6 +2081,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.trigger_break(), expected_idle_info);
     }
@@ -1933,6 +2107,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let resume_at_stamp = current_time + Duration::seconds(5 * 60);
@@ -1947,6 +2123,8 @@ mod tests {
             },
             presence_mode: PresenceMode::SnoozedUntil(resume_at_stamp),
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.snooze(resume_at_stamp), expected_idle_info);
     }
@@ -1971,6 +2149,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -1985,6 +2165,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(idle_monitor.skip_break(), expected_idle_info);
     }
@@ -2009,13 +2191,15 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
             idle_since_seconds: 0,
             last_checked: current_time,
             last_mode_state: ModeState::Normal {
-                progress_towards_break: Duration::seconds(TIME_TO_BREAK_SECS - (3 * 60)),
+                progress_towards_break: Duration::seconds(DEFAULT_TIME_TO_BREAK_SECS - (3 * 60)),
                 progress_towards_reset: Duration::seconds(0),
                 idle_state: DebouncedIdleState::Active {
                     active_since: current_time - Duration::milliseconds(2_000),
@@ -2023,6 +2207,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(
             idle_monitor.postpone_break(Duration::seconds(3 * 60)),
@@ -2051,6 +2237,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -2065,6 +2253,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: true,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         idle_monitor.set_reading_mode(true);
         assert_eq!(idle_monitor.get_last_idle_info(), expected_idle_info);
@@ -2091,6 +2281,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -2105,6 +2297,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: true,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         idle_monitor.set_reading_mode(true);
         assert_eq!(idle_monitor.get_last_idle_info(), expected_idle_info);
@@ -2127,6 +2321,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -2137,6 +2333,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: true,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         idle_monitor.set_reading_mode(true);
         assert_eq!(idle_monitor.get_last_idle_info(), expected_idle_info);
@@ -2162,6 +2360,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -2175,6 +2375,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: true,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         idle_monitor.set_reading_mode(true);
         assert_eq!(idle_monitor.get_last_idle_info(), expected_idle_info);
@@ -2200,6 +2402,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         let expected_idle_info = IdleInfo {
@@ -2213,6 +2417,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: true,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         idle_monitor.set_reading_mode(true);
         assert_eq!(idle_monitor.get_last_idle_info(), expected_idle_info);
@@ -2239,6 +2445,8 @@ mod tests {
                 },
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             },
         };
         assert_eq!(
@@ -2249,6 +2457,8 @@ mod tests {
                 progress_towards_reset: Duration::milliseconds(2_000),
                 presence_mode: PresenceMode::Active,
                 reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             }
         );
     }

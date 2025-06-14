@@ -11,7 +11,7 @@ use zbus::{connection, interface};
 
 use crate::{
     backend::idle_monitoring::{
-        Clock, IdleChecker, IdleInfo, IdleMonitor, ModeState, PresenceMode, TIME_TO_BREAK_SECS,
+        Clock, IdleChecker, IdleInfo, IdleMonitor, ModeState, PresenceMode,
     },
     frontend::formatting::{format_timedelta_timecode, format_timer_timecode},
 };
@@ -32,7 +32,7 @@ fn get_widget_info(idle_info: &IdleInfo) -> WidgetInfo {
             ModeState::Normal {
                 progress_towards_break,
                 ..
-            } => format_timer_timecode(progress_towards_break, TIME_TO_BREAK_SECS),
+            } => format_timer_timecode(progress_towards_break, idle_info.time_to_break_secs),
             _ => String::from(""),
         },
         prebreak_timer_value: match idle_info.last_mode_state {
@@ -164,7 +164,10 @@ mod tests {
     use chrono::{Local, TimeDelta, TimeZone, Utc};
 
     use crate::{
-        backend::idle_monitoring::{DebouncedIdleState, IdleInfo, ModeState, PresenceMode},
+        backend::idle_monitoring::{
+            DEFAULT_BREAK_LENGTH_SECS, DEFAULT_TIME_TO_BREAK_SECS, DebouncedIdleState, IdleInfo,
+            ModeState, PresenceMode,
+        },
         dbus::{WidgetInfo, get_widget_info},
     };
 
@@ -183,6 +186,8 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(
             get_widget_info(&info),
@@ -214,6 +219,8 @@ mod tests {
                 Utc.with_ymd_and_hms(2025, 2, 3, 12, 34, 11).unwrap(),
             ),
             reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
         };
         assert_eq!(
             get_widget_info(&info),
