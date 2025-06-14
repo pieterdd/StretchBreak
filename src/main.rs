@@ -110,7 +110,7 @@ fn main() {
     let instance = SingleInstance::new(APP_ID).expect("Initializing single instance object failed");
 
     if instance.is_single() {
-        let idle_monitor = IdleMonitor::new(IdleChecker, Clock);
+        let idle_monitor = IdleMonitor::new(IdleChecker, Clock, None);
         let idle_monitor_arc = Arc::new(Mutex::new(idle_monitor));
         let idle_monitor_arc2 = idle_monitor_arc.clone();
         let idle_monitor_arc3 = idle_monitor_arc.clone();

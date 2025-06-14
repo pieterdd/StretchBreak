@@ -127,6 +127,14 @@ impl IdleInfo {
     }
 }
 
+pub struct RestoredState {
+    progress_towards_break: Duration,
+    progress_towards_reset: Duration,
+    last_checked: DateTime<Utc>,
+    presence_mode: PresenceMode,
+    reading_mode: bool,
+}
+
 pub struct IdleMonitor<T: AbstractIdleChecker, U: AbstractClock> {
     idle_checker: T,
     clock: U,
@@ -134,21 +142,73 @@ pub struct IdleMonitor<T: AbstractIdleChecker, U: AbstractClock> {
 }
 
 impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
-    pub fn new(idle_checker: T, clock: U) -> Self {
+    pub fn new(idle_checker: T, clock: U, restored_state: Option<RestoredState>) -> Self {
         let time = clock.get_time();
+        let use_restored_timers = match restored_state {
+            Some(ref state) => {
+                let time_since_last_check = time.signed_duration_since(state.last_checked);
+                let sum_of_check_delta_and_reset_progress = time_since_last_check
+                    .checked_add(&state.progress_towards_reset)
+                    .unwrap();
+                sum_of_check_delta_and_reset_progress < Duration::seconds(BREAK_LENGTH_SECS)
+            }
+            None => false,
+        };
         Self {
             idle_checker,
             clock,
             last_idle_info: IdleInfo {
-                presence_mode: PresenceMode::Active,
+                presence_mode: match restored_state {
+                    Some(ref state) => state.presence_mode,
+                    None => PresenceMode::Active,
+                },
                 idle_since_seconds: 0,
                 last_checked: time,
                 last_mode_state: ModeState::Normal {
-                    idle_state: DebouncedIdleState::Active { active_since: time },
-                    progress_towards_break: Duration::seconds(0),
-                    progress_towards_reset: Duration::seconds(0),
+                    idle_state: match use_restored_timers {
+                        true => DebouncedIdleState::Idle {
+                            idle_since: match restored_state {
+                                Some(ref state) => state.last_checked,
+                                None => time,
+                            },
+                        },
+                        false => DebouncedIdleState::Active { active_since: time },
+                    },
+                    progress_towards_break: match restored_state {
+                        Some(ref state) => {
+                            if use_restored_timers {
+                                state.progress_towards_break
+                            } else {
+                                Duration::seconds(0)
+                            }
+                        }
+                        None => Duration::seconds(0),
+                    },
+                    progress_towards_reset: match restored_state {
+                        Some(ref state) => {
+                            if use_restored_timers {
+                                let time_since_last_checked: Duration =
+                                    time.signed_duration_since(state.last_checked);
+                                let unconstrained_duration = state
+                                    .progress_towards_reset
+                                    .checked_add(&time_since_last_checked)
+                                    .unwrap();
+                                if unconstrained_duration > Duration::seconds(BREAK_LENGTH_SECS) {
+                                    Duration::seconds(BREAK_LENGTH_SECS)
+                                } else {
+                                    unconstrained_duration
+                                }
+                            } else {
+                                Duration::seconds(0)
+                            }
+                        }
+                        None => Duration::seconds(0),
+                    },
                 },
-                reading_mode: false,
+                reading_mode: match restored_state {
+                    Some(ref state) => state.reading_mode,
+                    None => false,
+                },
             },
         }
     }
@@ -661,7 +721,7 @@ mod tests {
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
 
-        let mut idle_monitor = IdleMonitor::new(idle_checker, clock);
+        let mut idle_monitor = IdleMonitor::new(idle_checker, clock, None);
         let expected_idle_info = IdleInfo {
             idle_since_seconds: 0,
             last_checked: current_time,
@@ -674,6 +734,72 @@ mod tests {
             },
             presence_mode: PresenceMode::Active,
             reading_mode: false,
+        };
+        assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
+    }
+
+    #[test]
+    fn test_initialized_with_restored_state_timers_needing_clean_slate() {
+        let current_time = Utc::now();
+        let idle_checker = make_idle_checker(0);
+        let clock = make_clock(&current_time);
+
+        let mut idle_monitor = IdleMonitor::new(
+            idle_checker,
+            clock,
+            Some(RestoredState {
+                progress_towards_break: Duration::seconds(TIME_TO_BREAK_SECS - 1),
+                progress_towards_reset: Duration::seconds(5),
+                last_checked: current_time - Duration::seconds(BREAK_LENGTH_SECS - 5 + 1),
+                presence_mode: PresenceMode::Muted,
+                reading_mode: false,
+            }),
+        );
+        let expected_idle_info = IdleInfo {
+            idle_since_seconds: 0,
+            last_checked: current_time,
+            last_mode_state: ModeState::Normal {
+                progress_towards_break: Duration::seconds(0),
+                progress_towards_reset: Duration::seconds(0),
+                idle_state: DebouncedIdleState::Active {
+                    active_since: current_time,
+                },
+            },
+            presence_mode: PresenceMode::Muted,
+            reading_mode: false,
+        };
+        assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
+    }
+
+    #[test]
+    fn test_initialized_with_restored_state_timers_that_can_continue() {
+        let current_time = Utc::now();
+        let idle_checker = make_idle_checker(1);
+        let clock = make_clock(&current_time);
+
+        let mut idle_monitor = IdleMonitor::new(
+            idle_checker,
+            clock,
+            Some(RestoredState {
+                progress_towards_break: Duration::seconds(TIME_TO_BREAK_SECS - 1),
+                progress_towards_reset: Duration::seconds(5),
+                last_checked: current_time - Duration::seconds(BREAK_LENGTH_SECS - 5 - 1),
+                presence_mode: PresenceMode::SnoozedUntil(current_time + Duration::minutes(30)),
+                reading_mode: true,
+            }),
+        );
+        let expected_idle_info = IdleInfo {
+            idle_since_seconds: 1,
+            last_checked: current_time,
+            last_mode_state: ModeState::Normal {
+                progress_towards_break: Duration::seconds(TIME_TO_BREAK_SECS - 1),
+                progress_towards_reset: Duration::seconds(BREAK_LENGTH_SECS - 1),
+                idle_state: DebouncedIdleState::Idle {
+                    idle_since: current_time - Duration::seconds(BREAK_LENGTH_SECS - 5 - 1),
+                },
+            },
+            presence_mode: PresenceMode::SnoozedUntil(current_time + Duration::minutes(30)),
+            reading_mode: true,
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
