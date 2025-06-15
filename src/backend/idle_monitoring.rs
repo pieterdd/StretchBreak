@@ -1,6 +1,7 @@
 use chrono::{DateTime, Duration, Utc};
 use core::fmt;
 use serde::{Deserialize, Serialize};
+use std::cmp::min;
 use user_idle2::UserIdle;
 
 #[cfg(test)]
@@ -747,6 +748,60 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
             _ => self.last_idle_info,
         };
         return self.last_idle_info.clone();
+    }
+
+    pub fn set_time_to_break(&mut self, num_secs: i64) {
+        self.last_idle_info.time_to_break_secs = num_secs;
+        self.last_idle_info.last_mode_state = match self.last_idle_info.last_mode_state {
+            ModeState::Normal {
+                progress_towards_break,
+                progress_towards_reset,
+                idle_state,
+            } => ModeState::Normal {
+                progress_towards_break: Duration::seconds(min(
+                    progress_towards_break.num_seconds(),
+                    num_secs,
+                )),
+                progress_towards_reset,
+                idle_state,
+            },
+            ModeState::PreBreak { started_at } => ModeState::PreBreak { started_at },
+            ModeState::Break {
+                progress_towards_finish,
+                idle_state,
+            } => ModeState::Break {
+                progress_towards_finish,
+                idle_state,
+            },
+        };
+        self.persist_settings_to_disk();
+    }
+
+    pub fn set_break_length(&mut self, num_secs: i64) {
+        self.last_idle_info.break_length_secs = num_secs;
+        self.last_idle_info.last_mode_state = match self.last_idle_info.last_mode_state {
+            ModeState::Normal {
+                progress_towards_break,
+                progress_towards_reset,
+                idle_state,
+            } => ModeState::Normal {
+                progress_towards_break,
+                progress_towards_reset: Duration::seconds(min(
+                    progress_towards_reset.num_seconds(),
+                    num_secs,
+                )),
+                idle_state,
+            },
+            ModeState::PreBreak { started_at } => ModeState::PreBreak { started_at },
+            ModeState::Break {
+                progress_towards_finish,
+                idle_state,
+            } => ModeState::Break {
+                progress_towards_finish,
+                idle_state,
+            },
+        };
+        self.persist_settings_to_disk();
     }
 
     pub fn export_persistable_state(&self) -> PersistableState {
@@ -2422,6 +2477,190 @@ mod tests {
         };
         idle_monitor.set_reading_mode(true);
         assert_eq!(idle_monitor.get_last_idle_info(), expected_idle_info);
+    }
+
+    #[test]
+    fn test_change_time_to_break_no_clamping() {
+        let current_time = Utc::now();
+        let idle_checker = make_idle_checker(1);
+        let clock = make_clock(&current_time);
+
+        let mut idle_monitor = IdleMonitor {
+            idle_checker,
+            clock,
+            last_idle_info: IdleInfo {
+                idle_since_seconds: 0,
+                last_checked: current_time,
+                last_mode_state: ModeState::Normal {
+                    progress_towards_break: Duration::seconds(8),
+                    progress_towards_reset: Duration::seconds(2),
+                    idle_state: DebouncedIdleState::Idle {
+                        idle_since: current_time - Duration::seconds(5),
+                    },
+                },
+                presence_mode: PresenceMode::Active,
+                reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
+            },
+        };
+        idle_monitor.set_time_to_break(600);
+        assert_eq!(
+            idle_monitor.get_last_idle_info(),
+            IdleInfo {
+                idle_since_seconds: 0,
+                last_checked: current_time,
+                last_mode_state: ModeState::Normal {
+                    progress_towards_break: Duration::seconds(8),
+                    progress_towards_reset: Duration::seconds(2),
+                    idle_state: DebouncedIdleState::Idle {
+                        idle_since: current_time - Duration::seconds(5),
+                    },
+                },
+                presence_mode: PresenceMode::Active,
+                reading_mode: false,
+                time_to_break_secs: 600,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
+            }
+        );
+    }
+
+    #[test]
+    fn test_change_time_to_break_needs_clamping() {
+        let current_time = Utc::now();
+        let idle_checker = make_idle_checker(1);
+        let clock = make_clock(&current_time);
+
+        let mut idle_monitor = IdleMonitor {
+            idle_checker,
+            clock,
+            last_idle_info: IdleInfo {
+                idle_since_seconds: 0,
+                last_checked: current_time,
+                last_mode_state: ModeState::Normal {
+                    progress_towards_break: Duration::seconds(800),
+                    progress_towards_reset: Duration::seconds(2),
+                    idle_state: DebouncedIdleState::Idle {
+                        idle_since: current_time - Duration::seconds(5),
+                    },
+                },
+                presence_mode: PresenceMode::Active,
+                reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
+            },
+        };
+        idle_monitor.set_time_to_break(600);
+        assert_eq!(
+            idle_monitor.get_last_idle_info(),
+            IdleInfo {
+                idle_since_seconds: 0,
+                last_checked: current_time,
+                last_mode_state: ModeState::Normal {
+                    progress_towards_break: Duration::seconds(600),
+                    progress_towards_reset: Duration::seconds(2),
+                    idle_state: DebouncedIdleState::Idle {
+                        idle_since: current_time - Duration::seconds(5),
+                    },
+                },
+                presence_mode: PresenceMode::Active,
+                reading_mode: false,
+                time_to_break_secs: 600,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
+            }
+        );
+    }
+
+    #[test]
+    fn test_change_break_length_no_clamping() {
+        let current_time = Utc::now();
+        let idle_checker = make_idle_checker(1);
+        let clock = make_clock(&current_time);
+
+        let mut idle_monitor = IdleMonitor {
+            idle_checker,
+            clock,
+            last_idle_info: IdleInfo {
+                idle_since_seconds: 0,
+                last_checked: current_time,
+                last_mode_state: ModeState::Normal {
+                    progress_towards_break: Duration::seconds(2),
+                    progress_towards_reset: Duration::seconds(8),
+                    idle_state: DebouncedIdleState::Idle {
+                        idle_since: current_time - Duration::seconds(5),
+                    },
+                },
+                presence_mode: PresenceMode::Active,
+                reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
+            },
+        };
+        idle_monitor.set_break_length(600);
+        assert_eq!(
+            idle_monitor.get_last_idle_info(),
+            IdleInfo {
+                idle_since_seconds: 0,
+                last_checked: current_time,
+                last_mode_state: ModeState::Normal {
+                    progress_towards_break: Duration::seconds(2),
+                    progress_towards_reset: Duration::seconds(8),
+                    idle_state: DebouncedIdleState::Idle {
+                        idle_since: current_time - Duration::seconds(5),
+                    },
+                },
+                presence_mode: PresenceMode::Active,
+                reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: 600,
+            }
+        );
+    }
+
+    #[test]
+    fn test_change_break_length_needs_clamping() {
+        let current_time = Utc::now();
+        let idle_checker = make_idle_checker(1);
+        let clock = make_clock(&current_time);
+
+        let mut idle_monitor = IdleMonitor {
+            idle_checker,
+            clock,
+            last_idle_info: IdleInfo {
+                idle_since_seconds: 0,
+                last_checked: current_time,
+                last_mode_state: ModeState::Normal {
+                    progress_towards_break: Duration::seconds(2),
+                    progress_towards_reset: Duration::seconds(800),
+                    idle_state: DebouncedIdleState::Idle {
+                        idle_since: current_time - Duration::seconds(5),
+                    },
+                },
+                presence_mode: PresenceMode::Active,
+                reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
+            },
+        };
+        idle_monitor.set_break_length(600);
+        assert_eq!(
+            idle_monitor.get_last_idle_info(),
+            IdleInfo {
+                idle_since_seconds: 0,
+                last_checked: current_time,
+                last_mode_state: ModeState::Normal {
+                    progress_towards_break: Duration::seconds(2),
+                    progress_towards_reset: Duration::seconds(600),
+                    idle_state: DebouncedIdleState::Idle {
+                        idle_since: current_time - Duration::seconds(5),
+                    },
+                },
+                presence_mode: PresenceMode::Active,
+                reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: 600,
+            }
+        );
     }
 
     #[test]

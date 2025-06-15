@@ -45,6 +45,8 @@ pub enum MainWindowMsg {
     Mute,
     Unmute,
     SetReadingMode(bool),
+    SetTimeToBreak(i64),
+    SetBreakLength(i64),
     Hide,
 }
 
@@ -60,6 +62,7 @@ pub struct MainWindow {
     break_window: Option<Controller<BreakWindow>>,
     show_main_window: Receiver<bool>,
     prebreak_notification: Option<Notification>,
+    time_to_break_secs: i64,
 }
 
 #[relm4::component(pub)]
@@ -255,6 +258,32 @@ impl Component for MainWindow {
                                             set_menu_model: Some(&snooze),
                                         }
                                     }
+                                },
+                                adw::SpinRow {
+                                    set_title: "Time between breaks",
+                                    set_subtitle: "In minutes",
+                                    #[block_signal(time_to_break_handler)]
+                                    set_adjustment: Some(&gtk::Adjustment::new(
+                                        model.time_to_break_secs as f64 / 60.0,
+                                        0.0, 1440.0, 1.0, 1.0, 0.0,
+                                    )),
+                                    set_snap_to_ticks: false,
+                                    connect_value_notify[sender] => move |row| {
+                                        sender.input(MainWindowMsg::SetTimeToBreak(row.value().round() as i64))
+                                    } @time_to_break_handler
+                                },
+                                adw::SpinRow {
+                                    set_title: "Break length",
+                                    set_subtitle: "In seconds",
+                                    #[block_signal(break_length_handler)]
+                                    set_adjustment: Some(&gtk::Adjustment::new(
+                                        model.last_idle_info.break_length_secs as f64,
+                                        0.0, 86400.0, 10.0, 1.0, 0.0,
+                                    )),
+                                    set_snap_to_ticks: false,
+                                    connect_value_notify[sender] => move |row| {
+                                        sender.input(MainWindowMsg::SetBreakLength(row.value().round() as i64))
+                                    } @break_length_handler
                                 }
                             }
                         }
@@ -277,6 +306,7 @@ impl Component for MainWindow {
             break_window: None,
             show_main_window: init.show_main_window,
             prebreak_notification: None,
+            time_to_break_secs: previous_last_idle_info.time_to_break_secs,
         };
         let snooze_button = gtk::MenuButton::builder().build();
         let widgets = view_output!();
@@ -389,6 +419,9 @@ impl Component for MainWindow {
                     let visible = *self.show_main_window.borrow_and_update();
                     root.set_visible(visible);
                 }
+                if self.time_to_break_secs != self.last_idle_info.time_to_break_secs {
+                    self.time_to_break_secs = self.last_idle_info.time_to_break_secs;
+                }
             }
             MainWindowMsg::ForceBreak => {
                 self._unwrapped_idle_monitor().trigger_break();
@@ -408,6 +441,16 @@ impl Component for MainWindow {
             MainWindowMsg::SetReadingMode(value) => {
                 self._unwrapped_idle_monitor().set_reading_mode(value);
                 self.last_idle_info = self.idle_monitor_arc.lock().unwrap().get_last_idle_info();
+            }
+            MainWindowMsg::SetTimeToBreak(value) => {
+                if self.last_idle_info.time_to_break_secs != value {
+                    self._unwrapped_idle_monitor().set_time_to_break(value * 60);
+                }
+            }
+            MainWindowMsg::SetBreakLength(value) => {
+                if self.last_idle_info.break_length_secs != value {
+                    self._unwrapped_idle_monitor().set_break_length(value);
+                }
             }
             MainWindowMsg::Hide => {
                 root.set_visible(false);
