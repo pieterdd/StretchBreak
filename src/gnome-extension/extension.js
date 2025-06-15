@@ -108,32 +108,32 @@ class DBusClient {
     }
 
     toggleWindow() {
-        this._proxy.ToggleWindowSync();
+        this._proxy.ToggleWindowAsync();
     }
     
     revealWindow() {
-        this._proxy.RevealWindowSync();
+        this._proxy.RevealWindowAsync();
     }
     
     mute() {
-        this._proxy.MuteSync();
+        this._proxy.MuteAsync();
     }
 
     unmute() {
-        this._proxy.UnmuteSync();
+        this._proxy.UnmuteAsync();
     }
 
     snoozeFor(numMinutes) {
         try {
-            this._proxy.SnoozeForMinutesSync(numMinutes);
+            this._proxy.SnoozeForMinutesAsync(numMinutes);
         } catch (e) {
             debugLog('Fall back to old MuteForMinutes API');
-            this._proxy.MuteForMinutesSync(numMinutes);
+            this._proxy.MuteForMinutesAsync(numMinutes);
         }
     }
 
     setReadingMode(value) {
-        this._proxy.SetReadingModeSync(value);
+        this._proxy.SetReadingModeAsync(value);
     }
 
     unwatch() {
@@ -148,7 +148,7 @@ class DBusClient {
     }
 
     triggerBreak() {
-        this._proxy.TriggerBreakSync();
+        this._proxy.TriggerBreakAsync();
     }
 }
 
