@@ -107,6 +107,7 @@ class DBusClient {
         }
     }
 
+    // Deprecated - remove in 0.1.7
     toggleWindow() {
         this._proxy.ToggleWindowAsync();
     }
