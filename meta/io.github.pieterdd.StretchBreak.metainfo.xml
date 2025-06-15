@@ -55,6 +55,17 @@
   </description>
 
   <releases>
+    <release version="0.1.6" date="2025-06-15">
+      <description>
+        <ul>
+          <li>Make time until break and break length configurable</li>
+          <li>Persist settings and timers between restarts when sensible</li>
+          <li>Send application to background when close is clicked</li>
+          <li>Provide separate quit option</li>
+          <li>Fix for missing status icon</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.5" date="2025-06-08">
       <description>
         <ul>
