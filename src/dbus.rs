@@ -22,7 +22,6 @@ struct WidgetInfo {
     prebreak_timer_value: String,
     presence_mode: PresenceMode,
     snoozed_until_time: Option<String>,
-    muted_until_time: Option<String>, // Backwards compatibility - remove in 0.1.6
     reading_mode: bool,
 }
 
@@ -49,14 +48,6 @@ fn get_widget_info(idle_info: &IdleInfo) -> WidgetInfo {
                 DateTime::<Local>::from(timestamp).format("%R")
             )),
             PresenceMode::Muted => None,
-        },
-        muted_until_time: match idle_info.presence_mode {
-            PresenceMode::Active => None,
-            PresenceMode::SnoozedUntil(timestamp) => Some(format!(
-                "{}",
-                DateTime::<Local>::from(timestamp).format("%R")
-            )),
-            PresenceMode::Muted => Some(format!("unmuted")),
         },
         reading_mode: idle_info.reading_mode,
     }
@@ -138,11 +129,6 @@ impl DBusServer {
         monitor.snooze(unmute_time);
     }
 
-    // Deprecated - Remove in 0.1.6
-    fn mute_for_minutes(&self, num_minutes: i64) {
-        self.snooze_for_minutes(num_minutes);
-    }
-
     fn unmute(&self) {
         let mut monitor = self._unlock_monitor();
         monitor.unmute();
@@ -196,7 +182,6 @@ mod tests {
                 prebreak_timer_value: String::from(""),
                 presence_mode: PresenceMode::Active,
                 snoozed_until_time: None,
-                muted_until_time: None,
                 reading_mode: false,
             }
         )
@@ -231,7 +216,6 @@ mod tests {
                     Utc.with_ymd_and_hms(2025, 2, 3, 12, 34, 11).unwrap(),
                 ),
                 snoozed_until_time: Some(String::from("13:34")),
-                muted_until_time: Some(String::from("13:34")),
                 reading_mode: false,
             }
         )

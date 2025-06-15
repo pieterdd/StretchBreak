@@ -270,14 +270,10 @@ export default class StretchBreakCompanionExtension extends Extension {
     _onWidgetInfoUpdated(_emitter, _senderName, rawWidgetInfo) {
         const widgetInfo = JSON.parse(rawWidgetInfo);
         if (this._indicator) {
-            // Backwards compatibility: remove muted_until_time in 0.1.6
             const presenceModeType = widgetInfo.presence_mode?.type; 
             this._indicator.updateNormalLabel(widgetInfo.normal_timer_value);
             this._indicator.updatePrebreakLabel(widgetInfo.prebreak_timer_value);
-            this._indicator.updatePresenceMode(
-                widgetInfo.snoozed_until_time ?? widgetInfo.muted_until_time,
-                presenceModeType === 'muted',
-            );
+            this._indicator.updatePresenceMode(widgetInfo.snoozed_until_time, presenceModeType === 'muted');
             this._indicator.updateReadingModeStatus(widgetInfo.reading_mode);
         }
     }
