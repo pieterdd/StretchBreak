@@ -21,13 +21,13 @@
   <screenshots>
     <screenshot type="default">
       <image>
-        https://raw.githubusercontent.com/pieterdd/StretchBreak/de3c9b7a601420917e4c4e7aeaaa49e377a3ebbb/docs/mainWindow.png
+        https://raw.githubusercontent.com/pieterdd/StretchBreak/8c9672d185b9cf0ccaeab72b56c6d9a2d4c01e35/docs/mainWindow.png
       </image>
       <caption>Main window</caption>
     </screenshot>
     <screenshot>
       <image>
-        https://raw.githubusercontent.com/pieterdd/StretchBreak/53fdbb0644e623363cf3075bb6d9e8d7b9d36eb6/docs/gnomeShellWidget.png
+        https://raw.githubusercontent.com/pieterdd/StretchBreak/8c9672d185b9cf0ccaeab72b56c6d9a2d4c01e35/docs/gnomeShellWidget.png
       </image>
       <caption>GNOME Shell extension (installed separately)</caption>
     </screenshot>
@@ -39,18 +39,22 @@
     <p><em>(Stretch Break is still maturing. If you run into an issue, feel free to report it on GitHub!)</em></p>
     <p>
         Ergonomic support utility that regularly reminds you to take breaks
-        from using your computer, similar to tools like Workrave and Safe Eyes.
+        from using your computer. Stretch Break aims to provide an alternative to tools like Workrave and Safe Eyes
+        in a modern GNOME UI.
     </p>
     <p>With Stretch Break you can:</p>
     <ul>
-      <li>Get break reminders every 20 minutes</li>
-      <li>Automatically reset your break countdown when you've been away long enough</li>
+      <li>Get regular break reminders</li>
+      <li>Automatically reset your time until next break when keyboard or mouse haven't been used for a while</li>
       <li>Snooze break reminders for a period of time or mute them completely</li>
-      <li>Enable reading mode, where the break countdown doesn't pause while mouse and keyboard are idle</li>
+      <li>Enable reading mode, where the time until next break doesn't reset</li>
     </ul>
     <p>
+      Time until break and break lengths are configurable.
+    </p>
+    <p>
       Stretch Break works best with its accompanying GNOME Shell extension installed, which will
-      display remaining time in your system tray. The extension is available at: https://extensions.gnome.org/extension/8231/stretch-break-companion/
+      display time until next break in your system tray. The extension is available at: https://extensions.gnome.org/extension/8231/stretch-break-companion/
     </p>
   </description>
 
