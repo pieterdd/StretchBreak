@@ -47,7 +47,7 @@ pub enum MainWindowMsg {
     SetReadingMode(bool),
     SetTimeToBreak(i64),
     SetBreakLength(i64),
-    Hide,
+    Hide { notify: bool },
 }
 
 #[derive(Debug)]
@@ -94,7 +94,7 @@ impl Component for MainWindow {
             set_default_width: 400,
             set_default_height: 200,
             connect_close_request[sender] => move |_| {
-                sender.input(MainWindowMsg::Hide);
+                sender.input(MainWindowMsg::Hide { notify: true });
                 glib::Propagation::Stop
             },
 
@@ -299,6 +299,11 @@ impl Component for MainWindow {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let previous_last_idle_info = *init.last_idle_info.borrow();
+        let visible = *init.show_main_window.borrow();
+        if !visible {
+            sender.input(MainWindowMsg::Hide { notify: false });
+        }
+
         let model = MainWindow {
             idle_monitor_arc: init.idle_monitor_arc,
             previous_mode_state: previous_last_idle_info.last_mode_state,
@@ -452,10 +457,10 @@ impl Component for MainWindow {
                     self._unwrapped_idle_monitor().set_break_length(value);
                 }
             }
-            MainWindowMsg::Hide => {
+            MainWindowMsg::Hide { notify } => {
                 root.set_visible(false);
                 #[cfg(target_os = "linux")]
-                {
+                if notify {
                     let notification = Notification::new(
                         "Still here!",
                         "Stretch Break continues running in the background.",
