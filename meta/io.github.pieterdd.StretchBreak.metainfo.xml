@@ -60,6 +60,14 @@
   </description>
 
   <releases>
+    <release version="0.1.7" date="2025-06-20">
+      <description>
+        <ul>
+          <li>Track how long you've been postponing a break, even when muted</li>
+          <li>Fix for main window appearing at startup when started with --hide</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.6" date="2025-06-15">
       <description>
         <ul>
