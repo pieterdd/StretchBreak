@@ -48,6 +48,7 @@
       <li>Automatically reset your time until next break when keyboard or mouse haven't been used for a while</li>
       <li>Snooze break reminders for a period of time or mute them completely</li>
       <li>Enable reading mode, where the time until next break doesn't reset</li>
+      <li>Track how long you've been postponing your next break</li>
     </ul>
     <p>
       Time until break and break lengths are configurable.
