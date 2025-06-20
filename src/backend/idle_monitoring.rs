@@ -890,7 +890,7 @@ mod tests {
     }
 
     #[test]
-    fn test_freshly_initialized() {
+    fn freshly_initialized() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
@@ -916,7 +916,7 @@ mod tests {
     }
 
     #[test]
-    fn test_initialized_with_restored_state_timers_needing_clean_slate() {
+    fn initialized_with_restored_state_timers_needing_clean_slate() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
@@ -954,7 +954,7 @@ mod tests {
     }
 
     #[test]
-    fn test_initialized_with_restored_state_timers_that_can_continue() {
+    fn initialized_with_restored_state_timers_that_can_continue() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(1);
         let clock = make_clock(&current_time);
@@ -992,7 +992,7 @@ mod tests {
     }
 
     #[test]
-    fn test_active_status_quo() {
+    fn active_status_quo() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
@@ -1037,7 +1037,7 @@ mod tests {
     }
 
     #[test]
-    fn test_active_increments_overrun_when_nonzero() {
+    fn active_increments_overrun_when_nonzero() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
@@ -1082,7 +1082,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ignore_jumps_in_last_check_time_above_cutoff_point_below_time_to_break() {
+    fn ignore_jumps_in_last_check_time_above_cutoff_point_below_time_to_break() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
@@ -1127,7 +1127,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ignore_jumps_in_last_check_time_above_time_to_break() {
+    fn ignore_jumps_in_last_check_time_above_time_to_break() {
         // This is to handle standby
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(4643);
@@ -1173,7 +1173,7 @@ mod tests {
     }
 
     #[test]
-    fn test_idle_status_quo() {
+    fn idle_status_quo() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(1);
         let clock = make_clock(&current_time);
@@ -1218,7 +1218,7 @@ mod tests {
     }
 
     #[test]
-    fn test_idle_starting_transition() {
+    fn idle_starting_transition() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
@@ -1264,7 +1264,7 @@ mod tests {
     }
 
     #[test]
-    fn test_idle_still_transitioning() {
+    fn idle_still_transitioning() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(1);
         let clock = make_clock(&current_time);
@@ -1311,7 +1311,7 @@ mod tests {
     }
 
     #[test]
-    fn test_idle_cancelling_transition() {
+    fn idle_cancelling_transition() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(3);
         let clock = make_clock(&current_time);
@@ -1357,7 +1357,7 @@ mod tests {
     }
 
     #[test]
-    fn test_idle_finalizing_transition() {
+    fn idle_finalizing_transition() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(1);
         let clock = make_clock(&current_time);
@@ -1403,7 +1403,7 @@ mod tests {
     }
 
     #[test]
-    fn test_active_starting_transition() {
+    fn active_starting_transition() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(1);
         let clock = make_clock(&current_time);
@@ -1449,7 +1449,7 @@ mod tests {
     }
 
     #[test]
-    fn test_active_dont_start_transition_to_idle_in_reading_mode() {
+    fn active_dont_start_transition_to_idle_in_reading_mode() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(1);
         let clock = make_clock(&current_time);
@@ -1494,7 +1494,7 @@ mod tests {
     }
 
     #[test]
-    fn test_active_still_transitioning() {
+    fn active_still_transitioning() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(2);
         let clock = make_clock(&current_time);
@@ -1541,7 +1541,7 @@ mod tests {
     }
 
     #[test]
-    fn test_active_cancelling_transition() {
+    fn active_cancelling_transition() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
@@ -1587,7 +1587,7 @@ mod tests {
     }
 
     #[test]
-    fn test_active_finalizing_transition() {
+    fn active_finalizing_transition() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(4);
         let clock = make_clock(&current_time);
@@ -1633,7 +1633,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reaches_reset_threshold() {
+    fn reaches_reset_threshold() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(1);
         let clock = make_clock(&current_time);
@@ -1680,7 +1680,7 @@ mod tests {
     }
 
     #[test]
-    fn test_start_mute_in_normal() {
+    fn start_mute_in_normal() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(1);
         let clock = make_clock(&current_time);
@@ -1726,7 +1726,7 @@ mod tests {
     }
 
     #[test]
-    fn test_remain_muted() {
+    fn remain_muted() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(6);
         let clock = make_clock(&current_time);
@@ -1771,7 +1771,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mute_cancels_prebreak() {
+    fn mute_cancels_prebreak() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(6);
         let clock = make_clock(&current_time);
@@ -1814,7 +1814,7 @@ mod tests {
     }
 
     #[test]
-    fn test_unmute_when_muted() {
+    fn unmute_when_muted() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(6);
         let clock = make_clock(&current_time);
@@ -1859,7 +1859,7 @@ mod tests {
     }
 
     #[test]
-    fn test_unmute_when_not_muted() {
+    fn unmute_when_not_muted() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(6);
         let clock = make_clock(&current_time);
@@ -1904,7 +1904,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wake_from_mute() {
+    fn wake_from_mute() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(6);
         let clock = make_clock(&current_time);
@@ -1949,7 +1949,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reaches_break_threshold() {
+    fn reaches_break_threshold() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
@@ -1992,7 +1992,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ignore_break_threshold_in_mute() {
+    fn ignore_break_threshold_in_mute() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
@@ -2039,7 +2039,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prebreak_status_quo() {
+    fn prebreak_status_quo() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(1);
         let clock = make_clock(&current_time);
@@ -2076,7 +2076,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prebreak_idle_reset() {
+    fn prebreak_idle_reset() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
@@ -2113,7 +2113,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prebreak_idle_requirement_satisfied() {
+    fn prebreak_idle_requirement_satisfied() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(5);
         let clock = make_clock(&current_time);
@@ -2153,7 +2153,7 @@ mod tests {
     }
 
     #[test]
-    fn test_break_status_quo() {
+    fn break_status_quo() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(2);
         let clock = make_clock(&current_time);
@@ -2196,7 +2196,7 @@ mod tests {
     }
 
     #[test]
-    fn test_active_during_break_increases_overrun() {
+    fn active_during_break_increases_overrun() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
@@ -2239,7 +2239,7 @@ mod tests {
     }
 
     #[test]
-    fn test_break_concluded() {
+    fn break_concluded() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(28);
         let clock = make_clock(&current_time);
@@ -2285,7 +2285,7 @@ mod tests {
     }
 
     #[test]
-    fn test_force_break() {
+    fn force_break() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
@@ -2330,7 +2330,7 @@ mod tests {
     }
 
     #[test]
-    fn test_start_mute_in_break() {
+    fn start_mute_in_break() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(1);
         let clock = make_clock(&current_time);
@@ -2374,7 +2374,7 @@ mod tests {
     }
 
     #[test]
-    fn test_skip_break() {
+    fn skip_break() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
@@ -2418,7 +2418,7 @@ mod tests {
     }
 
     #[test]
-    fn test_postpone_break() {
+    fn postpone_break() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
@@ -2465,7 +2465,7 @@ mod tests {
     }
 
     #[test]
-    fn test_set_reading_mode_normal_active() {
+    fn set_reading_mode_normal_active() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
@@ -2511,7 +2511,7 @@ mod tests {
     }
 
     #[test]
-    fn test_set_reading_mode_normal_idle() {
+    fn set_reading_mode_normal_idle() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
@@ -2557,7 +2557,7 @@ mod tests {
     }
 
     #[test]
-    fn test_set_reading_mode_prebreak() {
+    fn set_reading_mode_prebreak() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
@@ -2595,7 +2595,7 @@ mod tests {
     }
 
     #[test]
-    fn test_set_reading_mode_break_active() {
+    fn set_reading_mode_break_active() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
@@ -2639,7 +2639,7 @@ mod tests {
     }
 
     #[test]
-    fn test_set_reading_mode_break_idle() {
+    fn set_reading_mode_break_idle() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(0);
         let clock = make_clock(&current_time);
@@ -2683,7 +2683,7 @@ mod tests {
     }
 
     #[test]
-    fn test_change_time_to_break_no_clamping() {
+    fn change_time_to_break_no_clamping() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(1);
         let clock = make_clock(&current_time);
@@ -2731,7 +2731,7 @@ mod tests {
     }
 
     #[test]
-    fn test_change_time_to_break_needs_clamping() {
+    fn change_time_to_break_needs_clamping() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(1);
         let clock = make_clock(&current_time);
@@ -2779,7 +2779,7 @@ mod tests {
     }
 
     #[test]
-    fn test_change_break_length_no_clamping() {
+    fn change_break_length_no_clamping() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(1);
         let clock = make_clock(&current_time);
@@ -2827,7 +2827,7 @@ mod tests {
     }
 
     #[test]
-    fn test_change_break_length_needs_clamping() {
+    fn change_break_length_needs_clamping() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(1);
         let clock = make_clock(&current_time);
@@ -2875,7 +2875,7 @@ mod tests {
     }
 
     #[test]
-    fn test_export_persistable_state() {
+    fn export_persistable_state() {
         let current_time = Utc::now();
         let idle_checker = make_idle_checker(1);
         let clock = make_clock(&current_time);
