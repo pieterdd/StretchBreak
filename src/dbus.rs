@@ -4,14 +4,14 @@ use std::{
 };
 use zbus::object_server::SignalEmitter;
 
-use chrono::{DateTime, Local, TimeDelta, Utc};
+use chrono::{DateTime, Duration, Local, TimeDelta, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::sync::watch::{Receiver, Sender};
 use zbus::{connection, interface};
 
 use crate::{
     backend::idle_monitoring::{
-        Clock, IdleChecker, IdleInfo, IdleMonitor, ModeState, PresenceMode,
+        Clock, DebouncedIdleState, IdleChecker, IdleInfo, IdleMonitor, ModeState, PresenceMode,
     },
     frontend::formatting::{format_timedelta_timecode, format_timer_timecode},
 };
@@ -19,13 +19,27 @@ use crate::{
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
 struct WidgetInfo {
     normal_timer_value: String,
-    prebreak_timer_value: String,
+    prebreak_timer_value: String, // Deprecrated - remove in 0.1.8
+    overrun_value: String,
     presence_mode: PresenceMode,
     snoozed_until_time: Option<String>,
     reading_mode: bool,
 }
 
 fn get_widget_info(idle_info: &IdleInfo) -> WidgetInfo {
+    let overrun_value = if idle_info.overrun == Duration::seconds(0) {
+        String::from("")
+    } else {
+        match idle_info.last_mode_state {
+            ModeState::Break { idle_state, .. } => match idle_state {
+                DebouncedIdleState::Idle { .. } | DebouncedIdleState::IdleGoingToActive { .. } => {
+                    String::from("")
+                }
+                _ => format_timedelta_timecode(&idle_info.overrun),
+            },
+            _ => format_timedelta_timecode(&idle_info.overrun),
+        }
+    };
     WidgetInfo {
         normal_timer_value: match idle_info.last_mode_state {
             ModeState::Normal {
@@ -34,12 +48,9 @@ fn get_widget_info(idle_info: &IdleInfo) -> WidgetInfo {
             } => format_timer_timecode(progress_towards_break, idle_info.time_to_break_secs),
             _ => String::from(""),
         },
-        prebreak_timer_value: match idle_info.last_mode_state {
-            ModeState::PreBreak { started_at } => {
-                format_timedelta_timecode(&(Utc::now() - started_at))
-            }
-            _ => String::from(""),
-        },
+        // This field is repurposed for backwards compatibility - remove in 0.1.8
+        prebreak_timer_value: overrun_value.clone(),
+        overrun_value: overrun_value.clone(),
         presence_mode: idle_info.presence_mode,
         snoozed_until_time: match idle_info.presence_mode {
             PresenceMode::Active => None,
@@ -147,7 +158,7 @@ impl DBusServer {
 
 #[cfg(test)]
 mod tests {
-    use chrono::{Local, TimeDelta, TimeZone, Utc};
+    use chrono::{Duration, Local, TimeDelta, TimeZone, Utc};
 
     use crate::{
         backend::idle_monitoring::{
@@ -174,12 +185,42 @@ mod tests {
             reading_mode: false,
             time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
             break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
+            overrun: Duration::milliseconds(0_000),
         };
         assert_eq!(
             get_widget_info(&info),
             WidgetInfo {
                 normal_timer_value: String::from("19:29"),
                 prebreak_timer_value: String::from(""),
+                overrun_value: String::from(""),
+                presence_mode: PresenceMode::Active,
+                snoozed_until_time: None,
+                reading_mode: false,
+            }
+        )
+    }
+
+    #[test]
+    fn with_overrun() {
+        let now = Local::now().to_utc();
+        let info = IdleInfo {
+            idle_since_seconds: 2,
+            last_checked: now,
+            last_mode_state: ModeState::PreBreak {
+                started_at: now - Duration::seconds(1),
+            },
+            presence_mode: PresenceMode::Active,
+            reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
+            overrun: Duration::milliseconds(1_000),
+        };
+        assert_eq!(
+            get_widget_info(&info),
+            WidgetInfo {
+                normal_timer_value: String::from(""),
+                prebreak_timer_value: String::from("0:01"),
+                overrun_value: String::from("0:01"),
                 presence_mode: PresenceMode::Active,
                 snoozed_until_time: None,
                 reading_mode: false,
@@ -206,12 +247,14 @@ mod tests {
             reading_mode: false,
             time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
             break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
+            overrun: Duration::milliseconds(0_000),
         };
         assert_eq!(
             get_widget_info(&info),
             WidgetInfo {
                 normal_timer_value: String::from("19:29"),
                 prebreak_timer_value: String::from(""),
+                overrun_value: String::from(""),
                 presence_mode: PresenceMode::SnoozedUntil(
                     Utc.with_ymd_and_hms(2025, 2, 3, 12, 34, 11).unwrap(),
                 ),

@@ -172,12 +172,12 @@ const Indicator = GObject.registerClass(
                 y_align: Clutter.ActorAlign.CENTER,
             });
             box.add_child(this._normalLabel);
-            this._prebreakLabel = new St.Label({
+            this._overrunLabel = new St.Label({
                 visible: false,
                 y_align: Clutter.ActorAlign.CENTER,
-                style_class: 'prebreakTimer',
+                style_class: 'overrunTimer',
             });
-            box.add_child(this._prebreakLabel);
+            box.add_child(this._overrunLabel);
             this.add_child(box);
 
             const itemOpen = new PopupMenu.PopupMenuItem("Open");
@@ -238,9 +238,9 @@ const Indicator = GObject.registerClass(
             this._normalLabel.text = text;
         }
 
-        updatePrebreakLabel(text) {
-            this._prebreakLabel.visible = !!text;
-            this._prebreakLabel.text = text;
+        updateOverrunLabel(text) {
+            this._overrunLabel.visible = !!text;
+            this._overrunLabel.text = text;
         }
 
         updatePresenceMode(snoozedUntilTime, isMuted) {
@@ -273,7 +273,8 @@ export default class StretchBreakCompanionExtension extends Extension {
         if (this._indicator) {
             const presenceModeType = widgetInfo.presence_mode?.type; 
             this._indicator.updateNormalLabel(widgetInfo.normal_timer_value);
-            this._indicator.updatePrebreakLabel(widgetInfo.prebreak_timer_value);
+            // prebreak_timer_value is deprecated - remove in 0.1.8
+            this._indicator.updateOverrunLabel(widgetInfo.overrun_value || widgetInfo.prebreak_timer_value);
             this._indicator.updatePresenceMode(widgetInfo.snoozed_until_time, presenceModeType === 'muted');
             this._indicator.updateReadingModeStatus(widgetInfo.reading_mode);
         }
@@ -282,7 +283,7 @@ export default class StretchBreakCompanionExtension extends Extension {
     _onServerDisconnected() {
         debugLog('Server disconnected hook triggered');
         this._indicator.updateNormalLabel('');
-        this._indicator.updatePrebreakLabel('');
+        this._indicator.updateOverrunLabel('');
     }
 
     enable() {
