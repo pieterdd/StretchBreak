@@ -45,7 +45,9 @@ fn get_widget_info(idle_info: &IdleInfo) -> WidgetInfo {
             ModeState::Normal {
                 progress_towards_break,
                 ..
-            } => format_timer_timecode(progress_towards_break, idle_info.time_to_break_secs),
+            } if progress_towards_break.num_seconds() < idle_info.time_to_break_secs => {
+                format_timer_timecode(progress_towards_break, idle_info.time_to_break_secs)
+            }
             _ => String::from(""),
         },
         // This field is repurposed for backwards compatibility - remove in 0.1.8

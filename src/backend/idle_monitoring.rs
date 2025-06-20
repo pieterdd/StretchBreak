@@ -569,18 +569,29 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                 self.last_idle_info.reading_mode,
                 self.last_idle_info.time_to_break_secs,
                 self.last_idle_info.break_length_secs,
-                match idle_state {
-                    DebouncedIdleState::Active { .. }
-                    | DebouncedIdleState::ActiveGoingToIdle { .. } => {
-                        if self.last_idle_info.overrun == Duration::seconds(0) {
+                if (progress_towards_reset + time_since_last_check).num_seconds()
+                    >= self.last_idle_info.break_length_secs
+                {
+                    Duration::seconds(0)
+                } else {
+                    match idle_state {
+                        DebouncedIdleState::Active { .. }
+                        | DebouncedIdleState::ActiveGoingToIdle { .. } => {
+                            if self.last_idle_info.overrun == Duration::seconds(0)
+                                && progress_towards_break.num_seconds()
+                                    < self.last_idle_info.time_to_break_secs
+                            {
+                                self.last_idle_info.overrun
+                            } else {
+                                self.last_idle_info.overrun
+                                    + (check_time - self.last_idle_info.last_checked)
+                            }
+                        }
+                        DebouncedIdleState::Idle { .. }
+                        | DebouncedIdleState::IdleGoingToActive { .. } => {
                             self.last_idle_info.overrun
-                        } else {
-                            self.last_idle_info.overrun
-                                + (check_time - self.last_idle_info.last_checked)
                         }
                     }
-                    DebouncedIdleState::Idle { .. }
-                    | DebouncedIdleState::IdleGoingToActive { .. } => self.last_idle_info.overrun,
                 },
             ),
             ModeState::PreBreak { .. } if self.last_idle_info.is_muted() => self
@@ -1657,7 +1668,7 @@ mod tests {
                 reading_mode: false,
                 time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
                 break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
-                overrun: Duration::seconds(0),
+                overrun: Duration::seconds(1),
             },
         };
         let expected_idle_info = IdleInfo {
@@ -2034,6 +2045,51 @@ mod tests {
             time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
             break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             overrun: Duration::seconds(0),
+        };
+        assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
+    }
+
+    #[test]
+    fn accumulate_overrun_when_progress_towards_break_full_and_in_mute() {
+        let current_time = Utc::now();
+        let idle_checker = make_idle_checker(0);
+        let clock = make_clock(&current_time);
+
+        let mut idle_monitor = IdleMonitor {
+            idle_checker,
+            clock,
+            last_idle_info: IdleInfo {
+                idle_since_seconds: 0,
+                last_checked: current_time - Duration::milliseconds(1_009),
+                last_mode_state: ModeState::Normal {
+                    progress_towards_break: Duration::seconds(DEFAULT_TIME_TO_BREAK_SECS),
+                    progress_towards_reset: Duration::seconds(0),
+                    idle_state: DebouncedIdleState::Active {
+                        active_since: current_time - Duration::milliseconds(10_000),
+                    },
+                },
+                presence_mode: PresenceMode::SnoozedUntil(current_time + Duration::minutes(20)),
+                reading_mode: false,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
+                overrun: Duration::seconds(0),
+            },
+        };
+        let expected_idle_info = IdleInfo {
+            idle_since_seconds: 0,
+            last_checked: current_time,
+            last_mode_state: ModeState::Normal {
+                progress_towards_break: Duration::seconds(DEFAULT_TIME_TO_BREAK_SECS),
+                progress_towards_reset: Duration::seconds(0),
+                idle_state: DebouncedIdleState::Active {
+                    active_since: current_time - Duration::milliseconds(10_000),
+                },
+            },
+            presence_mode: PresenceMode::SnoozedUntil(current_time + Duration::minutes(20)),
+            reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
+            overrun: Duration::milliseconds(1_009),
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
