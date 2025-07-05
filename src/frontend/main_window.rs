@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::process;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::sleep;
@@ -193,7 +194,7 @@ impl Component for MainWindow {
                                         adw::ActionRow {
                                             set_title: &format!("Prebreak"),
                                             #[watch]
-                                            set_subtitle: &format!("{} seconds to break", REQUIRED_PREBREAK_IDLE_STREAK_SECONDS - model.last_idle_info.idle_since_seconds),
+                                            set_subtitle: &format!("{} seconds to break", REQUIRED_PREBREAK_IDLE_STREAK_SECONDS - min(model.last_idle_info.idle_since_seconds, REQUIRED_PREBREAK_IDLE_STREAK_SECONDS)),
                                         },
                                     }
                                 }
