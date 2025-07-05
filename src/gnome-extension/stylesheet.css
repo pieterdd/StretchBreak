@@ -5,6 +5,13 @@
     padding: 0 10px;
 }
 
+.resetTimer {
+    background: blue;
+    border-radius: 10px;
+    color: white;
+    padding: 0 10px;
+}
+
 .muted {
     color: #999;
 }

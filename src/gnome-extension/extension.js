@@ -172,12 +172,21 @@ const Indicator = GObject.registerClass(
                 y_align: Clutter.ActorAlign.CENTER,
             });
             box.add_child(this._normalLabel);
+
             this._overrunLabel = new St.Label({
                 visible: false,
                 y_align: Clutter.ActorAlign.CENTER,
                 style_class: 'overrunTimer',
             });
             box.add_child(this._overrunLabel);
+            this.add_child(box);
+
+            this._resetLabel = new St.Label({
+                visible: false,
+                y_align: Clutter.ActorAlign.CENTER,
+                style_class: 'resetTimer',
+            });
+            box.add_child(this._resetLabel);
             this.add_child(box);
 
             const itemOpen = new PopupMenu.PopupMenuItem("Open");
@@ -243,6 +252,11 @@ const Indicator = GObject.registerClass(
             this._overrunLabel.text = text;
         }
 
+        updateResetLabel(text) {
+            this._resetLabel.visible = !!text;
+            this._resetLabel.text = text;
+        }
+
         updatePresenceMode(snoozedUntilTime, isMuted) {
             if (snoozedUntilTime || isMuted) {
                 this._normalLabel.style_class = 'muted';
@@ -274,6 +288,7 @@ export default class StretchBreakCompanionExtension extends Extension {
             const presenceModeType = widgetInfo.presence_mode?.type; 
             this._indicator.updateNormalLabel(widgetInfo.normal_timer_value);
             this._indicator.updateOverrunLabel(widgetInfo.overrun_value);
+            this._indicator.updateResetLabel(widgetInfo.countdown_to_reset_value ?? '');
             this._indicator.updatePresenceMode(widgetInfo.snoozed_until_time, presenceModeType === 'muted');
             this._indicator.updateReadingModeStatus(widgetInfo.reading_mode);
         }
