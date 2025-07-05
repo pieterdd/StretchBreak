@@ -124,14 +124,6 @@ impl Component for MainWindow {
                             set_margin_all: 10,
                             set_spacing: 10,
 
-                            adw::PreferencesGroup {
-                                adw::ActionRow {
-                                    set_title: &format!("Last activity"),
-                                    #[watch]
-                                    set_subtitle: &format!("{} seconds ago", model.last_idle_info.idle_since_seconds),
-                                },
-                            },
-
                             match model.last_idle_info.last_mode_state {
                                 ModeState::Normal { progress_towards_reset, progress_towards_break, idle_state, .. } => {
                                     adw::PreferencesGroup {
@@ -198,7 +190,15 @@ impl Component for MainWindow {
                                         },
                                     }
                                 }
-                            }
+                            },
+
+                            adw::PreferencesGroup {
+                                adw::ActionRow {
+                                    set_title: &format!("Last activity"),
+                                    #[watch]
+                                    set_subtitle: &format!("{} seconds ago", model.last_idle_info.idle_since_seconds),
+                                },
+                            },
                         },
 
                         add_titled_with_icon[Some("settings"), "Settings", icon_names::SETTINGS] = &gtk::Box {
