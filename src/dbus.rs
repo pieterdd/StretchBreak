@@ -52,11 +52,24 @@ fn get_widget_info(idle_info: &IdleInfo) -> WidgetInfo {
         {
             format_timer_timecode(progress_towards_reset, idle_info.break_length_secs)
         }
+        ModeState::Break {
+            progress_towards_finish,
+            idle_state,
+        } => {
+            if let DebouncedIdleState::Idle { .. } | DebouncedIdleState::IdleGoingToActive { .. } =
+                idle_state
+            {
+                format_timer_timecode(progress_towards_finish, idle_info.break_length_secs)
+            } else {
+                String::from("")
+            }
+        }
         _ => String::from(""),
     };
-    let overrun_value = match countdown_to_reset_value.is_empty() {
-        true => overrun_value.clone(),
-        false => String::from(""),
+    let overrun_value = match idle_info.last_mode_state {
+        ModeState::Normal { .. } if countdown_to_reset_value.is_empty() => overrun_value.clone(),
+        ModeState::Normal { .. } => String::from(""),
+        _ => overrun_value.clone(),
     };
     WidgetInfo {
         normal_timer_value: match idle_info.last_mode_state {
@@ -316,6 +329,38 @@ mod tests {
                     Utc.with_ymd_and_hms(2025, 2, 3, 12, 34, 11).unwrap(),
                 ),
                 snoozed_until_time: Some(String::from("13:34")),
+                reading_mode: false,
+            }
+        )
+    }
+
+    #[test]
+    fn in_break() {
+        let now = Local::now().to_utc();
+        let info = IdleInfo {
+            idle_since_seconds: 2,
+            last_checked: now,
+            last_mode_state: ModeState::Break {
+                idle_state: DebouncedIdleState::Idle {
+                    idle_since: now - Duration::seconds(2),
+                },
+                progress_towards_finish: Duration::seconds(5),
+            },
+            presence_mode: PresenceMode::Active,
+            reading_mode: false,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
+            overrun: Duration::milliseconds(1_000),
+        };
+        assert_eq!(
+            get_widget_info(&info),
+            WidgetInfo {
+                normal_timer_value: String::from(""),
+                countdown_to_reset_value: String::from("1:25"),
+                prebreak_timer_value: String::from(""),
+                overrun_value: String::from(""),
+                presence_mode: PresenceMode::Active,
+                snoozed_until_time: None,
                 reading_mode: false,
             }
         )
