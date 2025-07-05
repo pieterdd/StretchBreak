@@ -229,6 +229,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
         time_since_last_check: Duration,
         check_time: DateTime<Utc>,
         start_of_transition_period: DateTime<Utc>,
+        in_break: bool,
     ) -> DebouncedIdleState {
         match last_idle_state {
             DebouncedIdleState::Active { active_since: _ }
@@ -242,7 +243,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
             }
             DebouncedIdleState::Active { active_since } => match idle_since_seconds {
                 0 => DebouncedIdleState::Active { active_since },
-                _ => match self.last_idle_info.reading_mode {
+                _ => match self.last_idle_info.reading_mode && !in_break {
                     true => DebouncedIdleState::Active { active_since },
                     false => DebouncedIdleState::ActiveGoingToIdle {
                         active_since,
@@ -564,6 +565,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                     time_since_last_check,
                     check_time,
                     start_of_transition_period,
+                    false,
                 ),
                 time_since_last_check,
                 self.last_idle_info.reading_mode,
@@ -612,6 +614,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                         time_since_last_check,
                         check_time,
                         start_of_transition_period,
+                        false,
                     ),
                     time_since_last_check,
                     self.last_idle_info.reading_mode,
@@ -674,6 +677,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                             time_since_last_check,
                             check_time,
                             start_of_transition_period,
+                            true,
                         ),
                     },
                     presence_mode: new_presence_mode,
@@ -695,6 +699,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                     time_since_last_check,
                     check_time,
                     start_of_transition_period,
+                    true,
                 ),
                 progress_towards_finish,
                 time_since_last_check,
@@ -2247,6 +2252,50 @@ mod tests {
             time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
             break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
             overrun: Duration::milliseconds(3_000),
+        };
+        assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
+    }
+
+    #[test]
+    fn break_active_to_idle_in_reading_mode() {
+        let current_time = Utc::now();
+        let idle_checker = make_idle_checker(1);
+        let clock = make_clock(&current_time);
+
+        let mut idle_monitor = IdleMonitor {
+            idle_checker,
+            clock,
+            last_idle_info: IdleInfo {
+                idle_since_seconds: 0,
+                last_checked: current_time - Duration::milliseconds(1_025),
+                last_mode_state: ModeState::Break {
+                    progress_towards_finish: Duration::milliseconds(6_000),
+                    idle_state: DebouncedIdleState::Active {
+                        active_since: current_time - Duration::milliseconds(2_000),
+                    },
+                },
+                presence_mode: PresenceMode::Active,
+                reading_mode: true,
+                time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+                break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
+                overrun: Duration::milliseconds(3_000),
+            },
+        };
+        let expected_idle_info = IdleInfo {
+            idle_since_seconds: 1,
+            last_checked: current_time,
+            last_mode_state: ModeState::Break {
+                progress_towards_finish: Duration::milliseconds(6_000),
+                idle_state: DebouncedIdleState::ActiveGoingToIdle {
+                    active_since: current_time - Duration::milliseconds(2_000),
+                    transitioning_since: current_time,
+                },
+            },
+            presence_mode: PresenceMode::Active,
+            reading_mode: true,
+            time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
+            break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
+            overrun: Duration::milliseconds(4_025),
         };
         assert_eq!(idle_monitor.refresh_idle_info(), expected_idle_info);
     }
