@@ -128,7 +128,7 @@ impl Component for MainWindow {
                                 ModeState::Normal { progress_towards_reset, progress_towards_break, idle_state, .. } => {
                                     adw::PreferencesGroup {
                                         adw::ActionRow {
-                                            set_title: &format!("Time to break"),
+                                            set_title: "Time to break",
                                             #[watch]
                                             set_subtitle: &format_timer_timecode(progress_towards_break, model.last_idle_info.time_to_break_secs),
                                             add_suffix = &gtk::Box {
@@ -144,18 +144,18 @@ impl Component for MainWindow {
                                         },
 
                                         adw::ActionRow {
-                                            set_title: &format!("Time to reset"),
+                                            set_title: "Time to reset",
                                             #[watch]
                                             set_subtitle: &format_timer_timecode(progress_towards_reset, model.last_idle_info.break_length_secs),
                                         },
 
                                         adw::ActionRow {
-                                            set_title: &format!("Activity state"),
+                                            set_title: "Activity state",
                                             #[watch]
                                             set_subtitle: match idle_state {
                                                 DebouncedIdleState::Active { active_since } => format!("Active for {} seconds", Local::now().signed_duration_since(active_since).num_seconds()),
-                                                DebouncedIdleState::IdleGoingToActive { .. } => format!("Idle going to active"),
-                                                DebouncedIdleState::ActiveGoingToIdle { .. } => format!("Active going to idle"),
+                                                DebouncedIdleState::IdleGoingToActive { .. } => "Idle going to active".to_string(),
+                                                DebouncedIdleState::ActiveGoingToIdle { .. } => "Active going to idle".to_string(),
                                                 DebouncedIdleState::Idle { idle_since } => format!("Idle for {} seconds", Local::now().signed_duration_since(idle_since).num_seconds()),
                                             }.as_str(),
                                         },
@@ -164,18 +164,18 @@ impl Component for MainWindow {
                                 ModeState::Break { progress_towards_finish, idle_state } => {
                                     adw::PreferencesGroup {
                                         adw::ActionRow {
-                                            set_title: &format!("Break remainder"),
+                                            set_title: "Break remainder",
                                             #[watch]
                                             set_subtitle: &format_timer_timecode(progress_towards_finish, model.last_idle_info.break_length_secs),
                                         },
 
                                         adw::ActionRow {
-                                            set_title: &format!("State"),
+                                            set_title: "State",
                                             #[watch]
                                             set_subtitle: match idle_state {
                                                 DebouncedIdleState::Active { active_since } => format!("Active for {} seconds", Local::now().signed_duration_since(active_since).num_seconds()),
-                                                DebouncedIdleState::IdleGoingToActive { .. } => format!("Idle going to active"),
-                                                DebouncedIdleState::ActiveGoingToIdle { .. } => format!("Active going to idle"),
+                                                DebouncedIdleState::IdleGoingToActive { .. } => "Idle going to active".to_string(),
+                                                DebouncedIdleState::ActiveGoingToIdle { .. } => "Active going to idle".to_string(),
                                                 DebouncedIdleState::Idle { idle_since } => format!("Idle for {} seconds", Local::now().signed_duration_since(idle_since).num_seconds()),
                                             }.as_str(),
                                         },
@@ -184,7 +184,7 @@ impl Component for MainWindow {
                                 ModeState::PreBreak { .. } => {
                                     adw::PreferencesGroup {
                                         adw::ActionRow {
-                                            set_title: &format!("Prebreak"),
+                                            set_title: "Prebreak",
                                             #[watch]
                                             set_subtitle: &format!("{} seconds to break", REQUIRED_PREBREAK_IDLE_STREAK_SECONDS - min(model.last_idle_info.idle_since_seconds, REQUIRED_PREBREAK_IDLE_STREAK_SECONDS)),
                                         },
@@ -194,7 +194,7 @@ impl Component for MainWindow {
 
                             adw::PreferencesGroup {
                                 adw::ActionRow {
-                                    set_title: &format!("Last activity"),
+                                    set_title: "Last activity",
                                     #[watch]
                                     set_subtitle: &format!("{} seconds ago", model.last_idle_info.idle_since_seconds),
                                 },
@@ -208,7 +208,7 @@ impl Component for MainWindow {
 
                             adw::PreferencesGroup {
                                 adw::SwitchRow {
-                                    set_title: &format!("Reading mode"),
+                                    set_title: "Reading mode",
                                     #[watch]
                                     set_subtitle: match model.last_idle_info.reading_mode {
                                         true => "Break timer will not reset while idle",
@@ -221,12 +221,12 @@ impl Component for MainWindow {
                                     }
                                 },
                                 adw::ActionRow {
-                                    set_title: &format!("Break notifications"),
+                                    set_title: "Break notifications",
                                     #[watch]
                                     set_subtitle: &match model.last_idle_info.presence_mode {
-                                        PresenceMode::Active => format!("Enabled"),
+                                        PresenceMode::Active => "Enabled".to_string(),
                                         PresenceMode::SnoozedUntil(timestamp) => format!("Snoozed until {}", DateTime::<Local>::from(timestamp).format("%R")),
-                                        PresenceMode::Muted => format!("Muted"),
+                                        PresenceMode::Muted => "Muted".to_string(),
                                     },
                                     add_suffix = &gtk::Box {
                                         set_valign: gtk::Align::Center,
@@ -369,7 +369,7 @@ impl Component for MainWindow {
         message: Self::Input,
         sender: ComponentSender<Self>,
         root: &Self::Root,
-    ) -> () {
+    ) {
         match message {
             MainWindowMsg::Update => {
                 sender.spawn_oneshot_command(|| {

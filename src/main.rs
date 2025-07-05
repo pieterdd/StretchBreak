@@ -74,7 +74,7 @@ fn monitor_idle_forever(
                     .lock()
                     .expect("Idle monitor unlock failed")
                     .export_persistable_state();
-                if let Err(_) = persistable_state.save_to_disk() {
+                if persistable_state.save_to_disk().is_err() {
                     println!("Tried to write timer state to disk, but failed");
                 }
                 last_state_write = Utc::now();
@@ -85,8 +85,8 @@ fn monitor_idle_forever(
 
             match idle_info.last_mode_state {
                 ModeState::Normal { .. } => {
-                    match previous_idle_info {
-                        Some(unpacked_value) => match unpacked_value.last_mode_state {
+                    if let Some(unpacked_value) = previous_idle_info {
+                        match unpacked_value.last_mode_state {
                             ModeState::Break {
                                 progress_towards_finish: _,
                                 idle_state,
@@ -96,8 +96,7 @@ fn monitor_idle_forever(
                                 play_break_end_sound();
                             }
                             _ => {}
-                        },
-                        _ => {}
+                        }
                     }
                 }
                 ModeState::PreBreak { .. } => {}
@@ -120,7 +119,7 @@ struct Cli {
 
 fn main() {
     #[cfg(target_os = "linux")]
-    if let Err(_) = libnotify::init(APP_ID) {
+    if libnotify::init(APP_ID).is_err() {
         println!("Warning: could not initialize push notifications");
     }
 
@@ -130,7 +129,7 @@ fn main() {
 
     if instance.is_single() {
         let persistable_state = PersistableState::load_from_disk().ok();
-        if let None = persistable_state {
+        if persistable_state.is_none() {
             println!("Could not read settings and timer state from disk. Loading defaults.");
         }
         let idle_monitor = IdleMonitor::new(IdleChecker, Clock, persistable_state);

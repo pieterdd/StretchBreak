@@ -13,11 +13,11 @@ use crate::backend::idle_monitoring::{
 };
 
 fn time_to_break_secs() -> i64 {
-    return DEFAULT_TIME_TO_BREAK_SECS;
+    DEFAULT_TIME_TO_BREAK_SECS
 }
 
 fn break_length_secs() -> i64 {
-    return DEFAULT_BREAK_LENGTH_SECS;
+    DEFAULT_BREAK_LENGTH_SECS
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -52,6 +52,6 @@ impl PersistableState {
     pub fn save_to_disk(&self) -> Result<(), ()> {
         let raw_contents = serde_json::to_string(self).map_err(|_| ())?;
         let mut file = File::create(Self::get_state_filename()?).map_err(|_| ())?;
-        file.write_all(&raw_contents.as_bytes()).map_err(|_| ())
+        file.write_all(raw_contents.as_bytes()).map_err(|_| ())
     }
 }

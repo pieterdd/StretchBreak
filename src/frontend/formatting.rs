@@ -1,18 +1,18 @@
 use chrono::TimeDelta;
 
 pub fn format_timedelta_timecode(timedelta: &TimeDelta) -> String {
-    return format!(
+    format!(
         "{}:{:0>2}",
         timedelta.num_minutes(),
         timedelta.num_seconds() % 60,
-    );
+    )
 }
 
 pub fn format_timer_timecode(progress: TimeDelta, full_length_in_secs: i64) -> String {
     match TimeDelta::seconds(full_length_in_secs).checked_sub(&progress) {
         Some(timedelta) => format_timedelta_timecode(&timedelta),
         None => {
-            return format!("Now");
+            "Now".to_string()
         }
     }
 }

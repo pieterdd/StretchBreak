@@ -109,7 +109,7 @@ impl Component for BreakWindow {
         let last_idle_info = init.idle_monitor_arc.lock().unwrap().get_last_idle_info();
         let model = BreakWindow {
             idle_monitor_arc: init.idle_monitor_arc,
-            last_idle_info: last_idle_info,
+            last_idle_info,
             user_is_active: false,
         };
         let widgets = view_output!();
@@ -123,7 +123,7 @@ impl Component for BreakWindow {
         message: Self::Input,
         sender: ComponentSender<Self>,
         root: &Self::Root,
-    ) -> () {
+    ) {
         match message {
             BreakWindowMsg::Update => {
                 sender.spawn_oneshot_command(|| {

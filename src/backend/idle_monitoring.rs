@@ -46,7 +46,7 @@ pub struct Clock;
 #[cfg_attr(test, automock)]
 impl AbstractClock for Clock {
     fn get_time(&self) -> DateTime<Utc> {
-        return Utc::now();
+        Utc::now()
     }
 }
 
@@ -427,11 +427,11 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
     pub fn snooze(&mut self, timestamp: DateTime<Utc>) -> IdleInfo {
         self.last_idle_info.presence_mode = PresenceMode::SnoozedUntil(timestamp);
         self.persist_settings_to_disk();
-        self.last_idle_info.clone()
+        self.last_idle_info
     }
 
     fn persist_settings_to_disk(&self) {
-        if let Err(_) = self.export_persistable_state().save_to_disk() {
+        if self.export_persistable_state().save_to_disk().is_err() {
             println!("Could not save settings and timer state to disk");
         }
     }
@@ -439,13 +439,13 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
     pub fn mute(&mut self) -> IdleInfo {
         self.last_idle_info.presence_mode = PresenceMode::Muted;
         self.persist_settings_to_disk();
-        self.last_idle_info.clone()
+        self.last_idle_info
     }
 
     pub fn unmute(&mut self) -> IdleInfo {
         self.last_idle_info.presence_mode = PresenceMode::Active;
         self.persist_settings_to_disk();
-        self.last_idle_info.clone()
+        self.last_idle_info
     }
 
     pub fn set_reading_mode(&mut self, reading_mode: bool) {
@@ -492,7 +492,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
                     idle_state: map_debounced_idle_state(idle_state, check_time),
                 },
             },
-            reading_mode: reading_mode,
+            reading_mode,
             presence_mode: self.last_idle_info.presence_mode,
             time_to_break_secs: self.last_idle_info.time_to_break_secs,
             break_length_secs: self.last_idle_info.break_length_secs,
@@ -503,7 +503,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
     }
 
     pub fn get_last_idle_info(&self) -> IdleInfo {
-        self.last_idle_info.clone()
+        self.last_idle_info
     }
 
     pub fn refresh_idle_info(&mut self) -> IdleInfo {
@@ -513,7 +513,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
             - Duration::seconds(TRANSITION_THRESHOLD_SECS.try_into().unwrap());
         let time_since_last_check =
             check_time.signed_duration_since(self.last_idle_info.last_checked);
-        let last_mode_state = self.last_idle_info.last_mode_state.clone();
+        let last_mode_state = self.last_idle_info.last_mode_state;
 
         let new_presence_mode = match self.last_idle_info.presence_mode {
             PresenceMode::Active => PresenceMode::Active,
@@ -719,7 +719,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
             ),
         };
 
-        return self.last_idle_info.clone();
+        self.last_idle_info
     }
 
     pub fn trigger_break(&mut self) -> IdleInfo {
@@ -746,7 +746,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
             _ => self.last_idle_info,
         };
 
-        return self.last_idle_info.clone();
+        self.last_idle_info
     }
 
     pub fn skip_break(&mut self) -> IdleInfo {
@@ -774,7 +774,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
             _ => self.last_idle_info,
         };
 
-        return self.last_idle_info.clone();
+        self.last_idle_info
     }
 
     pub fn postpone_break(&mut self, postpone_duration: Duration) -> IdleInfo {
@@ -803,7 +803,7 @@ impl<T: AbstractIdleChecker, U: AbstractClock> IdleMonitor<T, U> {
             },
             _ => self.last_idle_info,
         };
-        return self.last_idle_info.clone();
+        self.last_idle_info
     }
 
     pub fn set_time_to_break(&mut self, num_secs: i64) {
@@ -896,13 +896,13 @@ mod tests {
         idle_checker
             .expect_get_idle_time_in_seconds()
             .return_once(move || idle_value);
-        return idle_checker;
+        idle_checker
     }
 
     fn make_clock(frozen_value: &DateTime<Utc>) -> MockClock {
         let mut clock = MockClock::new();
-        clock.expect_get_time().return_const(frozen_value.clone());
-        return clock;
+        clock.expect_get_time().return_const(*frozen_value);
+        clock
     }
 
     #[test]

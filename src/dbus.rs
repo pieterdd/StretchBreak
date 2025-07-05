@@ -137,10 +137,10 @@ struct DBusServer {
 
 impl DBusServer {
     fn _unlock_monitor(&self) -> MutexGuard<'_, IdleMonitor<IdleChecker, Clock>> {
-        return self
+        self
             .idle_monitor_arc
             .lock()
-            .expect("Unlocking idle monitor failed");
+            .expect("Unlocking idle monitor failed")
     }
 }
 
