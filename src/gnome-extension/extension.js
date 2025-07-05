@@ -273,8 +273,7 @@ export default class StretchBreakCompanionExtension extends Extension {
         if (this._indicator) {
             const presenceModeType = widgetInfo.presence_mode?.type; 
             this._indicator.updateNormalLabel(widgetInfo.normal_timer_value);
-            // prebreak_timer_value is deprecated - remove in 0.1.8
-            this._indicator.updateOverrunLabel(widgetInfo.overrun_value || widgetInfo.prebreak_timer_value);
+            this._indicator.updateOverrunLabel(widgetInfo.overrun_value);
             this._indicator.updatePresenceMode(widgetInfo.snoozed_until_time, presenceModeType === 'muted');
             this._indicator.updateReadingModeStatus(widgetInfo.reading_mode);
         }

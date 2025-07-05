@@ -19,7 +19,7 @@ use crate::{
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
 struct WidgetInfo {
     normal_timer_value: String,
-    prebreak_timer_value: String, // Deprecrated - remove in 0.1.8
+    prebreak_timer_value: String, // Deprecrated - remove in 0.1.9
     overrun_value: String,
     presence_mode: PresenceMode,
     snoozed_until_time: Option<String>,
@@ -50,7 +50,7 @@ fn get_widget_info(idle_info: &IdleInfo) -> WidgetInfo {
             }
             _ => String::from(""),
         },
-        // This field is repurposed for backwards compatibility - remove in 0.1.8
+        // This field is repurposed for backwards compatibility - remove in 0.1.9
         prebreak_timer_value: overrun_value.clone(),
         overrun_value: overrun_value.clone(),
         presence_mode: idle_info.presence_mode,
