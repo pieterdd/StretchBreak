@@ -21,7 +21,7 @@
   <screenshots>
     <screenshot type="default">
       <image>
-        https://raw.githubusercontent.com/pieterdd/StretchBreak/8c9672d185b9cf0ccaeab72b56c6d9a2d4c01e35/docs/mainWindow.png
+        https://raw.githubusercontent.com/pieterdd/StretchBreak/8495f2d6fc5d2e9a52cddf189ad4ffe894562bb1/docs/mainWindow.png
       </image>
       <caption>Main window</caption>
     </screenshot>
@@ -60,6 +60,16 @@
   </description>
 
   <releases>
+    <release version="0.1.8" date="2025-07-05">
+      <description>
+        <ul>
+          <li>Between breaks, display reset countdown in GNOME Shell widget after 15 seconds of counted idle time</li>
+          <li>Show break finish countdown in GNOME Shell widget</li>
+          <li>Fix: UI crash if idle longer than 5 seconds before prebreak</li>
+          <li>Fix: break windows should be able to enter idle state in reading mode</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.7" date="2025-06-20">
       <description>
         <ul>
