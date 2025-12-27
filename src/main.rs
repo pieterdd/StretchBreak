@@ -8,18 +8,18 @@ use backend::idle_monitoring::{
     Clock, DebouncedIdleState, IdleChecker, IdleInfo, IdleMonitor, ModeState,
 };
 use chrono::{TimeDelta, Utc};
-use clap::Parser;
+use clap::{Parser, Subcommand, ValueEnum};
 use dbus::run_server;
 use relm4::RelmApp;
 use rodio::{Decoder, OutputStream, Sink};
 use single_instance::SingleInstance;
-use tokio::runtime::Runtime;
 use tokio::sync::watch::{Sender, channel};
 use tracing::error;
 mod frontend;
 use frontend::main_window::{MainWindow, MainWindowInit};
-use zbus::{Connection, Error, Proxy};
+use zbus::{Connection, Error};
 mod icons;
+use crate::dbus::{DBusAppProxy, WidgetInfo};
 use crate::icons::icon_names;
 
 use crate::backend::file_io::PersistableState;
@@ -112,14 +112,38 @@ fn monitor_idle_forever(
     }
 }
 
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+enum WidgetApiCommand {
+    #[value(help = "Outputs time to next break. Empty when break ongoing.")]
+    TimeToBreak,
+    #[value(
+        help = "Outputs time to reset. Empty when user is sufficiently active or just after break finished."
+    )]
+    TimeToReset,
+    #[value(help = "When overdue for a break, outputs how long the user is overdue.")]
+    Overtime,
+    #[value(help = "Values are 'active', 'snoozed' or 'muted'.")]
+    PresenceMode,
+}
+
+#[derive(Clone, Copy, Subcommand)]
+enum Operation {
+    #[command(about = "Status data for desktop widgets that source data from terminal commands.")]
+    WidgetApi { command: WidgetApiCommand },
+}
+
 #[derive(Parser)]
 #[command()]
 struct Cli {
-    #[arg(long)]
+    #[arg(long, help = "Background mode: don't show the GUI.")]
     hide: bool,
+
+    #[command(subcommand)]
+    operation: Option<Operation>,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> zbus::Result<()> {
     #[cfg(target_os = "linux")]
     if libnotify::init(APP_ID).is_err() {
         println!("Warning: could not initialize push notifications");
@@ -127,8 +151,50 @@ fn main() {
 
     let cli = Cli::parse();
 
-    let instance = SingleInstance::new(APP_ID).expect("Initializing single instance object failed");
+    match cli.operation {
+        None => start_gui(cli.hide).await,
+        Some(operation) => {
+            let connection = Connection::session()
+                .await
+                .expect("Could not create DBus connection");
+            let proxy = DBusAppProxy::new(&connection)
+                .await
+                .expect("Could not open DBus proxy");
+            let raw_widget_info = proxy.get_widget_info().await.expect("DBus call failed");
+            let widget_info: WidgetInfo =
+                serde_json::from_str(&raw_widget_info).expect("Could not load widget info");
 
+            match operation {
+                Operation::WidgetApi { command } => match command {
+                    WidgetApiCommand::TimeToBreak => {
+                        print!("{}", widget_info.normal_timer_value);
+                    }
+                    WidgetApiCommand::TimeToReset => {
+                        print!("{}", widget_info.countdown_to_reset_value);
+                    }
+                    WidgetApiCommand::Overtime => {
+                        print!("{}", widget_info.overrun_value);
+                    }
+                    WidgetApiCommand::PresenceMode => {
+                        print!(
+                            "{}",
+                            match widget_info.presence_mode {
+                                backend::idle_monitoring::PresenceMode::Active => "active",
+                                backend::idle_monitoring::PresenceMode::Muted => "muted",
+                                backend::idle_monitoring::PresenceMode::SnoozedUntil(_) =>
+                                    "snoozed",
+                            }
+                        );
+                    }
+                },
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn start_gui(hide: bool) {
+    let instance = SingleInstance::new(APP_ID).expect("Initializing single instance object failed");
     if instance.is_single() {
         let persistable_state = PersistableState::load_from_disk().ok();
         if persistable_state.is_none() {
@@ -142,7 +208,7 @@ fn main() {
         let (idle_info_sender, idle_info_receiver) =
             channel(idle_monitor_arc.lock().unwrap().refresh_idle_info());
 
-        let (show_main_window_sender, show_main_window_recv) = channel(!cli.hide);
+        let (show_main_window_sender, show_main_window_recv) = channel(!hide);
 
         thread::spawn(move || monitor_idle_forever(idle_monitor_arc, idle_info_sender));
         let idle_info_receiver_ref = idle_info_receiver.clone();
@@ -168,22 +234,15 @@ fn main() {
         process::exit(0);
     } else {
         println!("Stretch Break is already running, revealing its window");
-        Runtime::new()
-            .unwrap()
-            .block_on(reveal_existing_main_window())
-            .ok();
+        reveal_existing_main_window()
+            .await
+            .expect("Could not communicate with main process");
     }
 }
 
 async fn reveal_existing_main_window() -> Result<(), Error> {
     let connection = Connection::session().await?;
-    let p = Proxy::new(
-        &connection,
-        format!("{APP_ID}.Core"),
-        "/io/github/pieterdd/StretchBreak/Core",
-        format!("{APP_ID}.Core"),
-    )
-    .await?;
-    let _: () = p.call("RevealWindow", &()).await?;
+    let proxy = DBusAppProxy::new(&connection).await?;
+    proxy.reveal_window().await?;
     Ok(())
 }

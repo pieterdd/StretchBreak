@@ -2,7 +2,7 @@ use std::{
     error::Error,
     sync::{Arc, Mutex, MutexGuard},
 };
-use zbus::object_server::SignalEmitter;
+use zbus::{object_server::SignalEmitter, proxy};
 
 use chrono::{DateTime, Duration, Local, TimeDelta, Utc};
 use serde::{Deserialize, Serialize};
@@ -19,12 +19,12 @@ use crate::{
 static SECS_THRESHOLD_TO_SHOW_RESET_COUNTDOWN: i64 = 15;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
-struct WidgetInfo {
-    normal_timer_value: String,
-    countdown_to_reset_value: String,
+pub(crate) struct WidgetInfo {
+    pub(crate) normal_timer_value: String,
+    pub(crate) countdown_to_reset_value: String,
     prebreak_timer_value: String, // Deprecrated - remove in 0.1.9
-    overrun_value: String,
-    presence_mode: PresenceMode,
+    pub(crate) overrun_value: String,
+    pub(crate) presence_mode: PresenceMode,
     snoozed_until_time: Option<String>,
     reading_mode: bool,
 }
@@ -137,15 +137,30 @@ struct DBusServer {
 
 impl DBusServer {
     fn _unlock_monitor(&self) -> MutexGuard<'_, IdleMonitor<IdleChecker, Clock>> {
-        self
-            .idle_monitor_arc
+        self.idle_monitor_arc
             .lock()
             .expect("Unlocking idle monitor failed")
     }
 }
 
+#[proxy(
+    interface = "io.github.pieterdd.StretchBreak.Core",
+    default_service = "io.github.pieterdd.StretchBreak.Core",
+    default_path = "/io/github/pieterdd/StretchBreak/Core"
+)]
+pub trait DBusApp {
+    fn reveal_window(&self) -> zbus::Result<()>;
+    fn get_widget_info(&self) -> zbus::Result<String>;
+}
+
 #[interface(name = "io.github.pieterdd.StretchBreak.Core", proxy())]
 impl DBusServer {
+    fn get_widget_info(&self) -> String {
+        let monitor = self._unlock_monitor();
+        let widget_info = get_widget_info(&monitor.get_last_idle_info());
+        serde_json::to_string(&widget_info).expect("Serde JSON conversion failed")
+    }
+
     #[zbus(signal)]
     async fn widget_info_updated(
         signal_emitter: &SignalEmitter<'_>,
