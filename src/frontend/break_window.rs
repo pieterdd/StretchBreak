@@ -1,13 +1,12 @@
-use relm4_icons::icon_names;
-use std::sync::{Arc, Mutex};
-use std::thread::sleep;
-use std::time::Duration;
-
 use crate::backend::idle_monitoring::{Clock, IdleChecker, IdleInfo, IdleMonitor, ModeState};
+use crate::icons::icon_names;
 use chrono::TimeDelta;
 use gtk::prelude::{BoxExt, ButtonExt, GtkWindowExt, OrientableExt, WidgetExt};
 use relm4::{Component, ComponentParts};
 use relm4::{ComponentSender, RelmWidgetExt};
+use std::sync::{Arc, Mutex};
+use std::thread::sleep;
+use std::time::Duration;
 
 pub struct BreakWindowInit {
     pub idle_monitor_arc: Arc<Mutex<IdleMonitor<IdleChecker, Clock>>>,
@@ -118,12 +117,7 @@ impl Component for BreakWindow {
         ComponentParts { model, widgets }
     }
 
-    fn update(
-        &mut self,
-        message: Self::Input,
-        sender: ComponentSender<Self>,
-        root: &Self::Root,
-    ) {
+    fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>, root: &Self::Root) {
         match message {
             BreakWindowMsg::Update => {
                 sender.spawn_oneshot_command(|| {

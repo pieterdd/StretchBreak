@@ -10,6 +10,7 @@ use crate::backend::idle_monitoring::{
     REQUIRED_PREBREAK_IDLE_STREAK_SECONDS,
 };
 use crate::frontend::formatting::format_timer_timecode;
+use crate::icons::icon_names;
 use adw::prelude::{ActionRowExt, AdwDialogExt, PreferencesRowExt};
 use chrono::{DateTime, Local, TimeDelta, Utc};
 use gtk::prelude::{BoxExt, ButtonExt, GtkWindowExt, OrientableExt, WidgetExt};
@@ -18,7 +19,6 @@ use relm4::RelmWidgetExt;
 use relm4::actions::{RelmAction, RelmActionGroup};
 use relm4::prelude::ComponentParts;
 use relm4::{Component, ComponentController, ComponentSender, Controller};
-use relm4_icons::icon_names;
 use tokio::sync::watch::Receiver;
 
 use super::break_window::{BreakWindow, BreakWindowInit};
@@ -96,7 +96,7 @@ impl Component for MainWindow {
             set_default_height: 200,
             connect_close_request[sender] => move |_| {
                 sender.input(MainWindowMsg::Hide { notify: true });
-                glib::Propagation::Stop
+                gtk::glib::Propagation::Stop
             },
 
             adw::ToolbarView {
@@ -364,12 +364,7 @@ impl Component for MainWindow {
         ComponentParts { model, widgets }
     }
 
-    fn update(
-        &mut self,
-        message: Self::Input,
-        sender: ComponentSender<Self>,
-        root: &Self::Root,
-    ) {
+    fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>, root: &Self::Root) {
         match message {
             MainWindowMsg::Update => {
                 sender.spawn_oneshot_command(|| {

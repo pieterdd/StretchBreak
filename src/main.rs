@@ -19,6 +19,8 @@ use tracing::error;
 mod frontend;
 use frontend::main_window::{MainWindow, MainWindowInit};
 use zbus::{Connection, Error, Proxy};
+mod icons;
+use crate::icons::icon_names;
 
 use crate::backend::file_io::PersistableState;
 mod dbus;
@@ -155,7 +157,7 @@ fn main() {
             }
         });
 
-        relm4_icons::initialize_icons();
+        relm4_icons::initialize_icons(icon_names::GRESOURCE_BYTES, icon_names::RESOURCE_PREFIX);
         let app = RelmApp::new(APP_ID);
         app.with_args(vec![]).run::<MainWindow>(MainWindowInit {
             idle_monitor_arc: idle_monitor_arc2,
