@@ -148,6 +148,11 @@ impl DBusServer {
 pub trait DBusApp {
     fn reveal_window(&self) -> zbus::Result<()>;
     fn get_widget_info(&self) -> zbus::Result<String>;
+    fn unmute(&self) -> zbus::Result<()>;
+    fn mute(&self) -> zbus::Result<()>;
+    fn snooze_for_minutes(&self, num_minutes: i64) -> zbus::Result<()>;
+    fn trigger_break(&self) -> zbus::Result<()>;
+    fn set_reading_mode(&self, value: bool) -> zbus::Result<()>;
 }
 
 #[interface(name = "io.github.pieterdd.StretchBreak.Core", proxy())]

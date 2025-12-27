@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::io::{BufReader, Cursor};
 use std::process;
 use std::sync::{Arc, Mutex};
@@ -8,7 +9,7 @@ use backend::idle_monitoring::{
     Clock, DebouncedIdleState, IdleChecker, IdleInfo, IdleMonitor, ModeState,
 };
 use chrono::{TimeDelta, Utc};
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 use dbus::run_server;
 use relm4::RelmApp;
 use rodio::{Decoder, OutputStream, Sink};
@@ -128,6 +129,19 @@ enum WidgetApiCommand {
 
 #[derive(Clone, Copy, Subcommand)]
 enum Operation {
+    #[command(about = "Stop prompting for breaks for the specified amount of minutes.")]
+    SnoozeFor { minutes: i64 },
+    #[command(about = "Show break prompts until further notice.")]
+    Unmute,
+    #[command(about = "Stop prompting for breaks until further notice.")]
+    Mute,
+    #[command(about = "Start a break right now.")]
+    Break,
+    #[command(about = "When reading mode is active, timer won't reset during idle activity.")]
+    SetReadingMode {
+        #[arg(action = ArgAction::Set)]
+        value: bool,
+    },
     #[command(about = "Status data for desktop widgets that source data from terminal commands.")]
     WidgetApi { command: WidgetApiCommand },
 }
@@ -165,28 +179,55 @@ async fn main() -> zbus::Result<()> {
                 serde_json::from_str(&raw_widget_info).expect("Could not load widget info");
 
             match operation {
-                Operation::WidgetApi { command } => match command {
-                    WidgetApiCommand::TimeToBreak => {
-                        print!("{}", widget_info.normal_timer_value);
+                Operation::SnoozeFor { minutes } => {
+                    proxy
+                        .snooze_for_minutes(max(minutes, 0))
+                        .await
+                        .expect("Snooze failed");
+                }
+                Operation::Unmute => {
+                    proxy.unmute().await.expect("Unmute failed");
+                }
+                Operation::Mute => {
+                    proxy.mute().await.expect("Mute failed");
+                }
+                Operation::Break => {
+                    proxy.trigger_break().await.expect("Break failed");
+                }
+                Operation::SetReadingMode { value } => {
+                    proxy.set_reading_mode(value).await.expect("Set failed");
+                }
+                Operation::WidgetApi { command } => {
+                    let raw_widget_info = proxy
+                        .get_widget_info()
+                        .await
+                        .expect("Could not retrieve widget info");
+                    let widget_info: WidgetInfo = serde_json::from_str(&raw_widget_info)
+                        .expect("Could not parse widget info");
+
+                    match command {
+                        WidgetApiCommand::TimeToBreak => {
+                            print!("{}", widget_info.normal_timer_value);
+                        }
+                        WidgetApiCommand::TimeToReset => {
+                            print!("{}", widget_info.countdown_to_reset_value);
+                        }
+                        WidgetApiCommand::Overtime => {
+                            print!("{}", widget_info.overrun_value);
+                        }
+                        WidgetApiCommand::PresenceMode => {
+                            print!(
+                                "{}",
+                                match widget_info.presence_mode {
+                                    backend::idle_monitoring::PresenceMode::Active => "active",
+                                    backend::idle_monitoring::PresenceMode::Muted => "muted",
+                                    backend::idle_monitoring::PresenceMode::SnoozedUntil(_) =>
+                                        "snoozed",
+                                }
+                            );
+                        }
                     }
-                    WidgetApiCommand::TimeToReset => {
-                        print!("{}", widget_info.countdown_to_reset_value);
-                    }
-                    WidgetApiCommand::Overtime => {
-                        print!("{}", widget_info.overrun_value);
-                    }
-                    WidgetApiCommand::PresenceMode => {
-                        print!(
-                            "{}",
-                            match widget_info.presence_mode {
-                                backend::idle_monitoring::PresenceMode::Active => "active",
-                                backend::idle_monitoring::PresenceMode::Muted => "muted",
-                                backend::idle_monitoring::PresenceMode::SnoozedUntil(_) =>
-                                    "snoozed",
-                            }
-                        );
-                    }
-                },
+                }
             }
         }
     }
