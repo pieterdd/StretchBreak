@@ -34,9 +34,9 @@
   </screenshots>
 
   <url type="homepage">https://github.com/pieterdd/StretchBreak</url>
+  <url type="bugtracker">https://github.com/pieterdd/StretchBreak/issues</url>
 
   <description>
-    <p><em>(Stretch Break is still maturing. If you run into an issue, feel free to report it on GitHub!)</em></p>
     <p>
         Ergonomic support utility that regularly reminds you to take breaks
         from using your computer. Stretch Break aims to provide an alternative to tools like Workrave and Safe Eyes
@@ -60,6 +60,16 @@
   </description>
 
   <releases>
+    <release version="0.1.9" date="2026-01-01">
+        <description>
+        <ul>
+            <li>Implement widget API for third-party GUI integrations</li>
+            <li>Implement shell commands to control Stretch Break</li>
+            <li>Remove deprecated prebreak timer value in DBus API</li>
+            <li>Update to Relm4 v0.10</li>
+        </ul>
+        </description>
+    </release>
     <release version="0.1.8" date="2025-07-05">
       <description>
         <ul>
