@@ -20,15 +20,15 @@ assets = [
 gtk4 = ">= 4.18.4"
 
 [dependencies]
-adw = { version = "0.7.2", package = "libadwaita", features = ["v1_5", "v1_7"] }
+adw = { version = "0.8.1", package = "libadwaita", features = ["v1_5", "v1_7"] }
 chrono = { version = "0.4.40", features = ["serde"] }
 clap = { version = "4.5.38", features = ["cargo", "derive"] }
 dirs = "6.0.0"
 glib = "0.20.10"
-gtk = { version = "0.9.6", package = "gtk4" }
+gtk = { version = "0.10.3", package = "gtk4" }
 libnotify = "1.0.3"
-relm4 = { version = "0.9.1", features = ["gnome_47", "libadwaita"] }
-relm4-icons = "0.9.0"
+relm4 = { version = "0.10", features = ["gnome_47", "libadwaita"] }
+relm4-icons = "0.10"
 rodio = "0.20.1"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
@@ -37,6 +37,9 @@ tokio = { version = "1.44.2", features = ["full", "sync", "time"] }
 tracing = "0.1.41"
 user-idle2 = "0.6.2"
 zbus = "5.5.0"
+
+[build-dependencies]
+relm4-icons-build = "0.10"
 
 [dev-dependencies]
 mockall = "0.13.1"
