@@ -22,7 +22,6 @@ static SECS_THRESHOLD_TO_SHOW_RESET_COUNTDOWN: i64 = 15;
 pub(crate) struct WidgetInfo {
     pub(crate) normal_timer_value: String,
     pub(crate) countdown_to_reset_value: String,
-    prebreak_timer_value: String, // Deprecrated - remove in 0.1.9
     pub(crate) overrun_value: String,
     pub(crate) presence_mode: PresenceMode,
     snoozed_until_time: Option<String>,
@@ -82,8 +81,6 @@ fn get_widget_info(idle_info: &IdleInfo) -> WidgetInfo {
             _ => String::from(""),
         },
         countdown_to_reset_value,
-        // This field is repurposed for backwards compatibility - remove in 0.1.9
-        prebreak_timer_value: overrun_value.clone(),
         overrun_value,
         presence_mode: idle_info.presence_mode,
         snoozed_until_time: match idle_info.presence_mode {
@@ -241,7 +238,6 @@ mod tests {
             WidgetInfo {
                 normal_timer_value: String::from("19:29"),
                 countdown_to_reset_value: String::from(""),
-                prebreak_timer_value: String::from(""),
                 overrun_value: String::from(""),
                 presence_mode: PresenceMode::Active,
                 snoozed_until_time: None,
@@ -270,7 +266,6 @@ mod tests {
             WidgetInfo {
                 normal_timer_value: String::from(""),
                 countdown_to_reset_value: String::from(""),
-                prebreak_timer_value: String::from("0:01"),
                 overrun_value: String::from("0:01"),
                 presence_mode: PresenceMode::Active,
                 snoozed_until_time: None,
@@ -303,7 +298,6 @@ mod tests {
             WidgetInfo {
                 normal_timer_value: String::from("19:58"),
                 countdown_to_reset_value: String::from("1:15"),
-                prebreak_timer_value: String::from(""),
                 overrun_value: String::from(""),
                 presence_mode: PresenceMode::Active,
                 snoozed_until_time: None,
@@ -338,7 +332,6 @@ mod tests {
             WidgetInfo {
                 normal_timer_value: String::from("19:29"),
                 countdown_to_reset_value: String::from(""),
-                prebreak_timer_value: String::from(""),
                 overrun_value: String::from(""),
                 presence_mode: PresenceMode::SnoozedUntil(
                     Utc.with_ymd_and_hms(2025, 2, 3, 12, 34, 11).unwrap(),
@@ -372,7 +365,6 @@ mod tests {
             WidgetInfo {
                 normal_timer_value: String::from(""),
                 countdown_to_reset_value: String::from("1:25"),
-                prebreak_timer_value: String::from(""),
                 overrun_value: String::from(""),
                 presence_mode: PresenceMode::Active,
                 snoozed_until_time: None,
