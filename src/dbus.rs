@@ -209,7 +209,7 @@ impl DBusServer {
 
 #[cfg(test)]
 mod tests {
-    use chrono::{Duration, Local, TimeDelta, TimeZone, Utc};
+    use chrono::{DateTime, Duration, Local, TimeDelta, TimeZone, Utc};
 
     use crate::{
         backend::idle_monitoring::{
@@ -314,6 +314,7 @@ mod tests {
     #[test]
     fn idle_status_muted() {
         let now = Local::now().to_utc();
+        let snoozed_until_time = Utc.with_ymd_and_hms(2025, 2, 3, 12, 34, 11).unwrap();
         let info = IdleInfo {
             idle_since_seconds: 2,
             last_checked: now,
@@ -324,9 +325,7 @@ mod tests {
                     active_since: now.checked_sub_signed(TimeDelta::seconds(20)).unwrap(),
                 },
             },
-            presence_mode: PresenceMode::SnoozedUntil(
-                Utc.with_ymd_and_hms(2025, 2, 3, 12, 34, 11).unwrap(),
-            ),
+            presence_mode: PresenceMode::SnoozedUntil(snoozed_until_time),
             reading_mode: false,
             time_to_break_secs: DEFAULT_TIME_TO_BREAK_SECS,
             break_length_secs: DEFAULT_BREAK_LENGTH_SECS,
@@ -338,10 +337,11 @@ mod tests {
                 normal_timer_value: String::from("19:29"),
                 countdown_to_reset_value: String::from(""),
                 overrun_value: String::from(""),
-                presence_mode: PresenceMode::SnoozedUntil(
-                    Utc.with_ymd_and_hms(2025, 2, 3, 12, 34, 11).unwrap(),
-                ),
-                snoozed_until_time: Some(String::from("13:34")),
+                presence_mode: PresenceMode::SnoozedUntil(snoozed_until_time),
+                snoozed_until_time: Some(format!(
+                    "{}",
+                    DateTime::<Local>::from(snoozed_until_time).format("%R"),
+                )),
                 reading_mode: false,
             }
         )
