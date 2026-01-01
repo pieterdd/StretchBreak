@@ -42,3 +42,14 @@ Options:
 ```
 
 Use the widget API to get quick access to the status indicator data that's used within the GNOME Shell extension. This can help integrate Stretch Break with KDE, Cinnamon, i3, Sway, Niri or other desktop environments. If you made a custom integration, feel free to tell me about it via the Issues tab!
+
+
+## AI policy
+
+- Stretch Break does not accept vibecoded contributions.
+- Stretch Break is open to some level of AI assistance in contributions, provided that:
+  * The author discloses which AI tooling they used
+  * The author is able to explain what their code does
+  * There are no quality issues with the code
+  * The author assumes the same responsibility over AI-written parts as human-written parts
+  * The author's contribution does not infringe on anyone else's intellectual property rights
